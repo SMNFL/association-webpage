@@ -1,0 +1,178 @@
+{
+  "legalNotice": {
+    "title": "Legal Notice",
+    "description": "Legal notice",
+    "backLabel": "Back to homepage",
+    "layout": "document",
+    "signal": "Legal",
+    "showToc": false,
+    "tocAriaLabel": "Legal notice table of contents",
+    "sections": [
+      {
+        "id": "legal-notice",
+        "heading": "Legal Notice",
+        "blocks": [
+          { "type": "address", "lines": ["Organization name", "Street and city"] },
+          { "type": "paragraph", "value": "Register court and registration number." },
+          { "type": "paragraph", "value": "Represented by: Name<br>E-mail: <a href=\"mailto:hello@example.com\">hello@example.com</a>" }
+        ]
+      },
+      {
+        "id": "liability-content",
+        "heading": "Liability for content",
+        "paragraphs": ["Add the full liability text in pages.local.json."]
+      },
+      {
+        "id": "liability-links",
+        "heading": "Liability for links",
+        "paragraphs": ["Add the full external link liability text in pages.local.json."]
+      },
+      {
+        "id": "copyright",
+        "heading": "Copyright",
+        "paragraphs": ["Add the full copyright text in pages.local.json."]
+      }
+    ]
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "description": "Privacy policy",
+    "backLabel": "Back to homepage",
+    "layout": "document",
+    "signal": "Privacy",
+    "showToc": false,
+    "tocAriaLabel": "Privacy policy table of contents",
+    "sections": [
+      {
+        "id": "privacy",
+        "heading": "Privacy",
+        "blocks": [
+          {
+            "type": "orderedList",
+            "items": [
+              "Add the first privacy paragraph in pages.local.json.",
+              "Add further privacy paragraphs as list items."
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "bylaws": {
+    "title": "Bylaws",
+    "description": "Organization bylaws",
+    "backLabel": "Back to homepage",
+    "layout": "document",
+    "signal": "Bylaws",
+    "showToc": true,
+    "tocTitle": "Contents",
+    "tocAriaLabel": "Bylaws table of contents",
+    "hero": {
+      "signal": "Bylaws",
+      "title": "Organization bylaws",
+      "description": "Edit this document in pages.local.json."
+    },
+    "sections": [
+      {
+        "id": "bylaws",
+        "heading": "Bylaws",
+        "paragraphs": [
+          "Add your organization bylaws in pages.local.json."
+        ]
+      }
+    ]
+  },
+  "crowdfunding": {
+    "title": "Crowdfunding",
+    "description": "Edit this crowdfunding page in pages.local.json.",
+    "backLabel": "Back to homepage",
+    "layout": "document",
+    "signal": "Crowdfunding",
+    "showToc": true,
+    "tocTitle": "Contents",
+    "tocAriaLabel": "Crowdfunding table of contents",
+    "hero": {
+      "signal": "Crowdfunding",
+      "title": "Crowdfunding",
+      "description": "Edit this crowdfunding page in pages.local.json."
+    },
+    "sections": [
+      {
+        "id": "crowdfunding",
+        "heading": "Crowdfunding",
+        "paragraphs": [
+          "Add the full crowdfunding text in pages.local.json."
+        ]
+      }
+    ]
+  },
+  "board": {
+    "title": "Team",
+    "description": "Team page",
+    "backLabel": "Back to homepage",
+    "sections": [
+      {
+        "heading": "Team",
+        "paragraphs": [
+          "Add team or board information in pages.local.json."
+        ]
+      }
+    ]
+  },
+  "membership": {
+    "title": "Apply",
+    "description": "Membership application",
+    "backLabel": "Back to homepage",
+    "hero": {
+      "signal": "Application",
+      "title": "Join the community.",
+      "description": "Use this form to apply for membership or participation."
+    },
+    "infoCards": [
+      { "title": "Community", "description": "Describe what applicants can expect." },
+      { "title": "Contribution", "description": "Describe fees or support options." },
+      { "title": "Values", "description": "Describe your values and expectations." }
+    ],
+    "form": {
+      "title": "Application",
+      "description": "Complete the form. The team will contact you after review.",
+      "subject": "Membership application",
+      "source": "/pages/membership.html",
+      "hcaptchaSiteKey": "10000000-ffff-ffff-ffff-000000000001",
+      "submitLabel": "Send application",
+      "privacyNote": "Submitted data is used to process the application.",
+      "thanksTitle": "Thank you",
+      "thanksText": "Your submission was sent if form processing is configured.",
+      "errorMessage": "Message could not be sent.",
+      "invalidMessage": "Please check the marked fields.",
+      "captchaMessage": "Please complete the captcha.",
+      "unreachableMessage": "Server is not reachable. Please try again later.",
+      "labels": {
+        "lastName": "Last name *",
+        "firstName": "First name *",
+        "birthDate": "Date of birth *",
+        "email": "E-mail *",
+        "phone": "Phone",
+        "street": "Street, number *",
+        "postalCode": "Postal code *",
+        "city": "City *",
+        "iban": "IBAN",
+        "bic": "BIC",
+        "membership": "Membership type *",
+        "motivation": "Tell us about yourself",
+        "motivationPlaceholder": "Why do you want to join?",
+        "consents": "Consents *"
+      },
+      "membershipOptions": [
+        { "value": "active", "label": "Active member" },
+        { "value": "passive", "label": "Passive member" },
+        { "value": "supporter", "label": "Supporter" }
+      ],
+      "consents": [
+        { "name": "rules_accepted", "required": true, "label": "I accept the rules and values." },
+        { "name": "data_processing", "required": true, "label": "I agree that submitted data may be processed for this application." },
+        { "name": "media_permission", "required": false, "label": "I agree that media may be used for organization communication." }
+      ]
+    }
+  }
+}

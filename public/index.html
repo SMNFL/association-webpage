@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Community Space</title>
+    <meta name="description" content="">
+    <meta name="theme-color" content="#060811">
+    <meta property="og:title" content="">
+    <meta property="og:description" content="">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="">
+    <link data-favicon rel="icon" href="">
+    <link rel="stylesheet" href="styles/main.css">
+    <script type="module" src="js/main.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main" data-copy="skipLink">Skip to content</a>
+    <div class="ambient" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+    <div data-header-sentinel></div>
+
+    <header class="site-header" data-collapsed="false">
+      <a class="brand" href="#hero" data-brand-link aria-label="">
+        <img data-logo alt="" width="64" height="64">
+        <span data-site-name></span>
+      </a>
+      <button class="menu-toggle" type="button" data-menu-toggle aria-expanded="false" aria-controls="site-nav">
+        <span class="menu-toggle__bar"></span>
+        <span class="visually-hidden" data-copy="menuToggle">Open navigation</span>
+      </button>
+      <nav id="site-nav" class="site-nav" data-nav data-open="false" aria-label="Main navigation"></nav>
+    </header>
+
+    <main id="main">
+      <section id="hero" class="hero" data-hero-image>
+        <div class="hero__content" data-reveal>
+          <p class="hero__signal" data-hero-signal></p>
+          <h2 data-hero-title></h2>
+          <div class="hero__video" data-hero-video-wrapper hidden></div>
+          <p data-hero-body></p>
+          <div class="hero__actions" data-hero-actions></div>
+        </div>
+        <div class="hero__panel" data-reveal>
+          <span data-hero-panel-label></span>
+          <strong data-hero-panel-text></strong>
+        </div>
+      </section>
+
+      <section id="about" class="section section--split">
+        <div class="section__intro" data-reveal>
+          <span class="section__number" data-about-number></span>
+          <h2 data-about-title></h2>
+        </div>
+        <div class="copy-stack" data-reveal>
+          <div data-about-copy></div>
+          <div class="belief-strip" data-about-tags></div>
+        </div>
+      </section>
+
+      <section id="events" class="section">
+        <div class="section__heading" data-reveal>
+          <span class="section__number" data-events-number></span>
+          <h2 data-events-title></h2>
+          <p data-events-description></p>
+        </div>
+        <div class="event-grid" data-upcoming-events></div>
+        <p class="empty-state" data-events-empty hidden></p>
+      </section>
+
+      <section id="archive" class="section section--archive">
+        <div class="section__heading section__heading--compact" data-reveal>
+          <h2 data-events-archive-title></h2>
+          <p data-events-archive-description></p>
+        </div>
+        <div class="archive-slider" data-archive-slider data-reveal>
+          <div class="archive-slider__controls" aria-label="Archive navigation">
+            <button class="archive-slider__button" type="button" data-archive-prev aria-label="Show newer events">
+              <span aria-hidden="true">←</span>
+            </button>
+            <button class="archive-slider__button" type="button" data-archive-next aria-label="Show older events">
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+          <div class="archive-slider__viewport" data-archive-viewport>
+            <div class="archive-slider__track" data-past-events></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="culture" class="section culture">
+        <div class="section__heading" data-reveal>
+          <span class="section__number" data-culture-number></span>
+          <h2 data-culture-title></h2>
+          <p data-culture-description></p>
+        </div>
+        <div class="culture-grid" data-culture-cards></div>
+      </section>
+
+      <section id="gallery" class="section mood">
+        <div class="section__heading" data-reveal>
+          <span class="section__number" data-gallery-number></span>
+          <h2 data-gallery-title></h2>
+          <p data-gallery-description></p>
+        </div>
+        <div class="mood-grid" data-gallery></div>
+      </section>
+
+      <section id="instagram" class="section section--split instagram">
+        <div class="section__intro" data-reveal>
+          <span class="section__number" data-instagram-number></span>
+          <h2 data-instagram-title></h2>
+          <p class="muted" data-instagram-description></p>
+          <a class="button" data-instagram-link target="_blank" rel="noreferrer" href=""></a>
+        </div>
+        <div class="instagram-frame" data-reveal>
+          <div class="instagram-frame__header">
+            <span data-instagram-username></span>
+            <span data-instagram-source></span>
+          </div>
+          <div data-instagram-embed></div>
+        </div>
+      </section>
+
+      <section id="membership" class="section membership">
+        <div class="membership__content" data-reveal>
+          <h2 data-membership-title></h2>
+          <p data-membership-description></p>
+          <div class="membership__actions">
+            <a class="button" data-membership-link href=""></a>
+            <a class="text-link" data-membership-secondary href=""></a>
+          </div>
+        </div>
+      </section>
+
+      <section id="contact" class="section contact">
+        <div class="section__heading" data-reveal>
+          <span class="section__number" data-contact-number></span>
+          <h2 data-contact-title></h2>
+          <p data-contact-description></p>
+        </div>
+        <div class="contact-grid" data-contact-cards></div>
+        <div class="map-card" data-reveal>
+          <div class="map-card__copy">
+            <span data-map-label></span>
+            <h3 data-map-title></h3>
+            <p data-map-description></p>
+            <a class="text-link" data-maps-link href="" target="_blank" rel="noreferrer" data-map-button></a>
+          </div>
+          <iframe
+            data-maps-embed
+            title=""
+            src=""
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </div>
+      </section>
+    </main>
+
+    <footer id="footer" class="site-footer">
+      <p data-footer-copyright></p>
+      <nav data-footer-links aria-label="Rechtliches"></nav>
+    </footer>
+  </body>
+</html>

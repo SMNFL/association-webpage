@@ -1,0 +1,29 @@
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*
+!.env.example
+.cache/
+dist/
+node_modules/
+public/data/*.local.json
+public/data/events.content.json
+public/js/events-data.js
+public/pages/events/*.html
+!public/pages/events/open-culture-night.html
+!public/pages/events/archive-summer-sessions.html
+!public/pages/events/archive-workshop-day.html
+!public/pages/events/archive-listening-room.html
+!public/pages/events/archive-community-market.html
+# Deployment-specific media stays available locally but is not published
+# with the reusable repository. Keep only the generic built-in placeholder.
+public/assets/docs/**
+public/assets/icons/**
+!public/assets/icons/site-placeholder.svg
+public/assets/images/**
+public/assets/videos/**
+.editor-backups/
+test-results/
+playwright-report/
+docs/simonswel.de.selfhosting.md

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title></title>
+    <meta name="description" content="">
+    <link data-favicon rel="icon" href="">
+    <link rel="stylesheet" href="../styles/main.css">
+    <script type="module" src="../js/page.js"></script>
+  </head>
+  <body data-page="membership">
+    <main class="section form-page">
+      <a class="text-link" href="../index.html#membership" data-back-label></a>
+
+      <header class="form-hero">
+        <span class="section__number" data-page-signal></span>
+        <h1 data-page-title></h1>
+        <p data-page-description></p>
+      </header>
+
+      <section class="membership-copy statute-section" data-membership-copy data-reveal></section>
+
+      <form class="membership-form" name="membership-application" method="POST" autocomplete="on" data-netlify="true" netlify-honeypot="bot-field" action="/pages/membership.html" data-membership-form>
+        <input type="hidden" name="form-name" value="membership-application">
+        <input type="hidden" name="subject" value="" data-form-subject>
+        <input type="hidden" name="source" value="" data-form-source>
+        <p class="visually-hidden">
+          <label>Do not fill this field <input name="bot-field"></label>
+        </p>
+
+        <div class="form-section">
+          <h2 data-form-title></h2>
+          <p data-form-description></p>
+        </div>
+
+        <fieldset>
+          <legend data-label="name"></legend>
+          <div class="form-grid">
+            <label>
+              <span data-label="lastName"></span>
+              <input id="family-name" name="family-name" autocomplete="family-name" autocapitalize="words" required>
+              <small class="field-description" data-label="lastNameDescription"></small>
+            </label>
+            <label>
+              <span data-label="firstName"></span>
+              <input id="given-name" name="given-name" autocomplete="given-name" autocapitalize="words" required>
+              <small class="field-description" data-label="firstNameDescription"></small>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="form-grid">
+          <label><span data-label="birthDate"></span><input id="bday" type="date" name="bday" autocomplete="bday" required></label>
+          <label><span data-label="street"></span><input id="address-line1" name="address-line1" autocomplete="address-line1" autocapitalize="words" required></label>
+          <label><span data-label="city"></span><input id="address-level2" name="address-level2" autocomplete="address-level2" autocapitalize="words" required></label>
+          <label><span data-label="postalCode"></span><input id="postal-code" name="postal-code" autocomplete="postal-code" inputmode="numeric" required></label>
+          <label><span data-label="phone"></span><input id="tel" type="tel" name="tel" autocomplete="tel" inputmode="tel" placeholder="+49.." required></label>
+          <label><span data-label="email"></span><input id="email" type="email" name="email" autocomplete="email" autocapitalize="none" inputmode="email" required></label>
+          <label><span data-label="iban"></span><input id="iban" name="iban" autocomplete="on" autocapitalize="characters" spellcheck="false" required></label>
+          <label><span data-label="bic"></span><input id="bic" name="bic" autocomplete="on" autocapitalize="characters" spellcheck="false" maxlength="11" required></label>
+        </div>
+
+        <label>
+          <span data-label="membership"></span>
+          <select id="membership-type" name="membership-type" autocomplete="on" data-membership-select required></select>
+        </label>
+
+        <label>
+          <span data-label="motivation"></span>
+          <textarea id="membership-motivation" name="motivation" rows="5" autocomplete="on" data-placeholder="motivationPlaceholder" required></textarea>
+        </label>
+
+        <div class="consent-stack" data-consents>
+          <div class="consent-block" data-consent-block>
+            <h3 data-consent-title></h3>
+            <label class="choice"><input type="checkbox" name="data_processing" required> <span data-consent-label></span></label>
+            <p class="field-description" data-consent-description></p>
+          </div>
+          <div class="consent-block" data-consent-block>
+            <h3 data-consent-title></h3>
+            <label class="choice"><input type="checkbox" name="sepa_direct_debit" required> <span data-consent-label></span></label>
+            <p class="field-description" data-consent-description></p>
+          </div>
+        </div>
+
+        <div class="captcha-box">
+          <label class="captcha-label" for="h-captcha-response">Captcha</label>
+          <div class="h-captcha" data-hcaptcha data-size="normal" data-theme="dark"></div>
+          <small class="field-error" data-captcha-error hidden>Please complete the captcha.</small>
+        </div>
+
+        <p class="form-status" data-form-status aria-live="polite"></p>
+        <p class="form-note" data-form-note></p>
+        <button class="button" type="submit" data-form-submit></button>
+      </form>
+
+    </main>
+  </body>
+</html>

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title></title>
+    <meta name="description" content="">
+    <link data-favicon rel="icon" href="">
+    <link rel="stylesheet" href="../styles/main.css">
+    <script type="module" src="../js/culture-detail.js"></script>
+  </head>
+  <body>
+    <main class="section culture-detail-page">
+      <a class="text-link detail-back" href="../index.html#culture" data-back-label>Back</a>
+      <section class="culture-detail-hero" data-reveal>
+        <div>
+          <span data-theme-number></span>
+          <h1 data-theme-title></h1>
+          <p data-theme-description></p>
+          <div class="artist-links" data-theme-links></div>
+        </div>
+      </section>
+      <section class="detail-section" data-theme-leads-section>
+        <div class="section__heading">
+          <span>Leitung</span>
+          <h2 data-theme-leads-title></h2>
+        </div>
+        <div class="artist-grid artist-grid--leaders" data-theme-leads></div>
+      </section>
+      <section class="detail-section" data-theme-artists-section>
+        <div class="section__heading">
+          <span>Artists</span>
+          <h2 data-theme-artists-title></h2>
+        </div>
+        <div class="artist-grid artist-grid--masonry" data-theme-artists data-masonry-grid></div>
+      </section>
+    </main>
+  </body>
+</html>

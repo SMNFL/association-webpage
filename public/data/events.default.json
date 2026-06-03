@@ -1,0 +1,267 @@
+[
+  {
+    "id": "open-culture-night",
+    "slug": "open-culture-night",
+    "title": "Open Culture Night",
+    "date": "2030-09-19",
+    "displayDate": "19 September 2030",
+    "time": "20:00",
+    "status": "upcoming",
+    "image": "assets/icons/site-placeholder.svg",
+    "coverImage": "assets/icons/site-placeholder.svg",
+    "imagePosition": "center center",
+    "excerpt": "A welcoming evening with live music, talks and space to meet the local community.",
+    "description": [
+      "Open Culture Night is a complete example for an active event page. Replace this text with your real announcement in the local editor.",
+      "Use the active event state for upcoming events that may still need ticket links, embeds or late schedule updates."
+    ],
+    "location": "Example Hall, Example City",
+    "ticketUrl": "https://tickets.example.org/open-culture-night",
+    "ticketLink": "https://tickets.example.org/open-culture-night",
+    "ticketEmbed": "",
+    "ticketEmbedHeight": 316,
+    "ticketDetails": "Optional ticket information for active events.",
+    "instagramPostUrl": "https://www.instagram.com/p/EXAMPLE/",
+    "detailUrl": "pages/events/open-culture-night.html",
+    "embeds": [
+      {
+        "provider": "youtube",
+        "title": "Example event trailer",
+        "src": "https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ"
+      }
+    ],
+    "tags": [
+      "live",
+      "community",
+      "culture"
+    ],
+    "sections": [
+      {
+        "heading": "Program",
+        "paragraphs": [
+          "Doors, welcome, live performance and informal community time."
+        ]
+      },
+      {
+        "heading": "Accessibility",
+        "paragraphs": [
+          "Add practical accessibility, arrival and contact information here."
+        ]
+      }
+    ],
+    "gallery": [
+      {
+        "src": "assets/icons/site-placeholder.svg",
+        "alt": "Example active event preview"
+      }
+    ],
+    "originalImages": [
+      {
+        "src": "assets/icons/site-placeholder.svg",
+        "sourceUrl": "https://example.org/original-active-image"
+      }
+    ]
+  },
+  {
+    "id": "archive-summer-sessions",
+    "slug": "archive-summer-sessions",
+    "title": "Summer Sessions",
+    "date": "2029-08-10",
+    "displayDate": "10 August 2029",
+    "time": "18:00",
+    "status": "archive",
+    "image": "assets/icons/site-placeholder.svg",
+    "coverImage": "assets/icons/site-placeholder.svg",
+    "imagePosition": "center center",
+    "excerpt": "A past outdoor evening with music, workshops and a relaxed gallery recap.",
+    "description": [
+      "Archived events are used as recaps. They never show ticket buttons or ticket embeds."
+    ],
+    "location": "Example Courtyard, Example City",
+    "ticketUrl": "",
+    "ticketLink": "",
+    "ticketEmbed": "",
+    "ticketEmbedHeight": "",
+    "ticketDetails": "",
+    "instagramPostUrl": "",
+    "detailUrl": "pages/events/archive-summer-sessions.html",
+    "embeds": [],
+    "tags": [
+      "archive",
+      "outdoor"
+    ],
+    "sections": [
+      {
+        "heading": "Recap",
+        "paragraphs": [
+          "Use this space for a short memory, thanks or press note."
+        ]
+      }
+    ],
+    "gallery": [
+      {
+        "src": "assets/icons/site-placeholder.svg",
+        "alt": "Summer Sessions gallery image"
+      }
+    ],
+    "originalImages": [
+      {
+        "src": "assets/icons/site-placeholder.svg",
+        "sourceUrl": "https://example.org/original-summer-image"
+      }
+    ]
+  },
+  {
+    "id": "archive-workshop-day",
+    "slug": "archive-workshop-day",
+    "title": "Workshop Day",
+    "date": "2029-05-04",
+    "displayDate": "4 May 2029",
+    "time": "14:00",
+    "status": "archive",
+    "image": "assets/icons/site-placeholder.svg",
+    "coverImage": "assets/icons/site-placeholder.svg",
+    "imagePosition": "center center",
+    "excerpt": "A practical day for learning, creating and sharing skills.",
+    "description": [
+      "This archived example shows how a workshop recap can be structured."
+    ],
+    "location": "Example Studio, Example City",
+    "ticketUrl": "",
+    "ticketLink": "",
+    "ticketEmbed": "",
+    "ticketEmbedHeight": "",
+    "ticketDetails": "",
+    "instagramPostUrl": "",
+    "detailUrl": "pages/events/archive-workshop-day.html",
+    "embeds": [],
+    "tags": [
+      "archive",
+      "workshop"
+    ],
+    "sections": [
+      {
+        "heading": "What happened",
+        "paragraphs": [
+          "Document topics, hosts and outcomes from the workshop."
+        ]
+      }
+    ],
+    "gallery": [
+      {
+        "src": "assets/icons/site-placeholder.svg",
+        "alt": "Workshop Day gallery image"
+      }
+    ],
+    "originalImages": [
+      {
+        "src": "assets/icons/site-placeholder.svg",
+        "sourceUrl": "https://example.org/original-workshop-image"
+      }
+    ]
+  },
+  {
+    "id": "archive-listening-room",
+    "slug": "archive-listening-room",
+    "title": "Listening Room",
+    "date": "2029-02-22",
+    "displayDate": "22 February 2029",
+    "time": "19:30",
+    "status": "archive",
+    "image": "assets/icons/site-placeholder.svg",
+    "coverImage": "assets/icons/site-placeholder.svg",
+    "imagePosition": "center center",
+    "excerpt": "A calm archived example for talks, ambient music or focused listening formats.",
+    "description": [
+      "Use archive pages to keep past formats discoverable without keeping sales links alive."
+    ],
+    "location": "Example Listening Room",
+    "ticketUrl": "",
+    "ticketLink": "",
+    "ticketEmbed": "",
+    "ticketEmbedHeight": "",
+    "ticketDetails": "",
+    "instagramPostUrl": "",
+    "detailUrl": "pages/events/archive-listening-room.html",
+    "embeds": [
+      {
+        "provider": "spotify",
+        "title": "Example playlist",
+        "src": "https://open.spotify.com/embed/playlist/37i9dQZF1DX4WYpdgoIcn6"
+      }
+    ],
+    "tags": [
+      "archive",
+      "listening"
+    ],
+    "sections": [
+      {
+        "heading": "Notes",
+        "paragraphs": [
+          "Add track lists, credits or contextual notes here."
+        ]
+      }
+    ],
+    "gallery": [
+      {
+        "src": "assets/icons/site-placeholder.svg",
+        "alt": "Listening Room gallery image"
+      }
+    ],
+    "originalImages": [
+      {
+        "src": "assets/icons/site-placeholder.svg",
+        "sourceUrl": "https://example.org/original-listening-image"
+      }
+    ]
+  },
+  {
+    "id": "archive-community-market",
+    "slug": "archive-community-market",
+    "title": "Community Market",
+    "date": "2028-11-16",
+    "displayDate": "16 November 2028",
+    "time": "12:00",
+    "status": "archive",
+    "image": "assets/icons/site-placeholder.svg",
+    "coverImage": "assets/icons/site-placeholder.svg",
+    "imagePosition": "center center",
+    "excerpt": "A past daytime gathering with local makers, information tables and music.",
+    "description": [
+      "This example gives the archive slider enough content to feel complete in a clean checkout."
+    ],
+    "location": "Example Market Space",
+    "ticketUrl": "",
+    "ticketLink": "",
+    "ticketEmbed": "",
+    "ticketEmbedHeight": "",
+    "ticketDetails": "",
+    "instagramPostUrl": "",
+    "detailUrl": "pages/events/archive-community-market.html",
+    "embeds": [],
+    "tags": [
+      "archive",
+      "community"
+    ],
+    "sections": [
+      {
+        "heading": "Thanks",
+        "paragraphs": [
+          "Thank participating groups, volunteers and visitors here."
+        ]
+      }
+    ],
+    "gallery": [
+      {
+        "src": "assets/icons/site-placeholder.svg",
+        "alt": "Community Market gallery image"
+      }
+    ],
+    "originalImages": [
+      {
+        "src": "assets/icons/site-placeholder.svg",
+        "sourceUrl": "https://example.org/original-market-image"
+      }
+    ]
+  }
+]

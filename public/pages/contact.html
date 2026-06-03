@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Contact | Community Space</title>
+    <meta name="description" content="Contact form for booking, cooperation and general questions.">
+    <meta name="theme-color" content="#060811">
+    <link data-favicon rel="icon" href="../assets/icons/site-placeholder.svg">
+    <link rel="stylesheet" href="../styles/main.css">
+    <script type="module" src="../js/contact.js"></script>
+  </head>
+  <body>
+    <main class="section form-page">
+      <a class="text-link" href="../index.html#contact" data-back-label data-contact-text="backLabel">Back to homepage</a>
+
+      <header class="form-hero" data-reveal>
+        <span class="section__number" data-contact-text="signal">Contact</span>
+        <h1 data-contact-text="headline">Write to us.</h1>
+        <p data-contact-text="intro">For booking, cooperation, questions or support requests.</p>
+      </header>
+
+      <form class="membership-form contact-form" name="contact" method="POST" autocomplete="on" data-netlify="true" netlify-honeypot="bot-field" action="/pages/contact.html#thanks" data-contact-form novalidate>
+        <input type="hidden" name="form-name" value="contact">
+        <p class="visually-hidden">
+          <label>Do not fill this field <input name="bot-field"></label>
+        </p>
+
+        <div class="form-section">
+          <h2 data-contact-text="formTitle">Contact form</h2>
+          <p data-contact-text="formDescription">The subject can be prefilled from the link and changed before sending.</p>
+        </div>
+
+        <div class="form-grid">
+          <label for="name">
+            <span data-contact-label="name">Name *</span>
+            <input id="name" name="name" autocomplete="name" autocapitalize="words" required aria-describedby="contact-name-error">
+            <small class="field-error" id="contact-name-error" data-error-for="name" hidden>Please enter your name.</small>
+          </label>
+          <label for="email">
+            <span data-contact-label="email">Email *</span>
+            <input id="email" type="email" name="email" autocomplete="email" autocapitalize="none" inputmode="email" required aria-describedby="contact-email-error">
+            <small class="field-error" id="contact-email-error" data-error-for="email" hidden>Please enter a valid email address.</small>
+          </label>
+          <label for="tel">
+            <span data-contact-label="phone">Phone optional</span>
+            <input id="tel" type="tel" name="phone" autocomplete="tel" inputmode="tel">
+          </label>
+          <label for="subject">
+            <span data-contact-label="subject">Subject *</span>
+            <input id="subject" name="subject" autocomplete="on" required aria-describedby="contact-subject-error" data-subject-input>
+            <small class="field-error" id="contact-subject-error" data-error-for="subject" hidden>Please enter a subject.</small>
+          </label>
+        </div>
+
+        <label for="message">
+          <span data-contact-label="message">Message *</span>
+          <textarea id="message" name="message" rows="7" autocomplete="on" required aria-describedby="contact-message-error"></textarea>
+          <small class="field-error" id="contact-message-error" data-error-for="message" hidden>Please write a short message.</small>
+        </label>
+
+        <label class="choice" for="privacy">
+          <input id="privacy" type="checkbox" name="privacy" required aria-describedby="contact-privacy-error">
+          <span data-contact-label="privacy">I have read the <a href="privacy.html">privacy policy</a> and agree that my details may be processed for this contact request. *</span>
+        </label>
+        <small class="field-error" id="contact-privacy-error" data-error-for="privacy" hidden>Please confirm the privacy policy.</small>
+
+        <div class="captcha-box" data-contact-captcha hidden>
+          <label class="captcha-label" for="h-captcha-response" data-contact-label="captcha">Captcha</label>
+          <div class="h-captcha" data-hcaptcha data-size="normal" data-theme="dark"></div>
+        </div>
+
+        <p class="form-status" data-form-status aria-live="polite"></p>
+        <button class="button" type="submit" data-contact-text="submitLabel">Send message</button>
+      </form>
+
+      <section id="thanks" class="form-thanks" aria-label="Thanks">
+        <h2 data-contact-text="thanksTitle">Thank you!</h2>
+        <p><span data-contact-text="thanksText">If the form is connected, your message will be sent.</span> <a data-contact-email href="mailto:hello@example.org">hello@example.org</a></p>
+      </section>
+    </main>
+  </body>
+</html>

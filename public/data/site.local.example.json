@@ -1,0 +1,37 @@
+{
+  "name": "Your Local Site Name",
+  "title": "Your Local Site Name | Culture Website",
+  "description": "Short SEO description for your local website.",
+  "email": "hello@example.org",
+  "hcaptchaSiteKey": "YOUR_HCAPTCHA_SITE_KEY",
+  "address": {
+    "name": "Your Place",
+    "street": "Example Street 1",
+    "postalCode": "00000",
+    "city": "Example City",
+    "country": "Germany",
+    "mapsPlaceName": "Your Place",
+    "mapsUrl": "https://maps.google.com/",
+    "mapsEmbedUrl": "https://www.google.com/maps?q=Example%20Location&output=embed"
+  },
+  "instagram": {
+    "username": "example",
+    "profileUrl": "https://www.instagram.com/example/",
+    "fallbackFeed": "data/instagram-feed.local.json"
+  },
+  "contactSection": {
+    "instagramLabel": "Instagram",
+    "socialLinks": [
+      {
+        "label": "@example",
+        "url": "https://www.instagram.com/example/"
+      }
+    ]
+  },
+  "images": {
+    "logo": "assets/images/logo.png",
+    "hero": "assets/images/hero.jpg",
+    "socialPreview": "assets/images/hero.jpg",
+    "gallery": []
+  }
+}

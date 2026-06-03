@@ -1,0 +1,274 @@
+{
+  "name": "Community Space",
+  "title": "Community Space | Modern Culture Website",
+  "description": "A modern static website template for culture, events, community, music and local spaces.",
+  "language": "en",
+  "themeColor": "#060811",
+  "theme": {
+    "preset": "sukura",
+    "themeColor": "#060811",
+    "colors": {
+      "background": "#050712",
+      "backgroundSoft": "#0a0d1d",
+      "surface": "#101427",
+      "surfaceStrong": "#181e36",
+      "text": "#f5f7fb",
+      "muted": "#aeb7c8",
+      "primary": "#3df7df",
+      "secondary": "#ff4fd8",
+      "highlight": "#d5ff5f"
+    },
+    "layout": {
+      "containerWidth": 1160,
+      "cornerStyle": "soft",
+      "density": "comfortable"
+    },
+    "typography": {
+      "fontFamily": "sora",
+      "textSize": "standard"
+    },
+    "effects": {
+      "ambient": true,
+      "backgroundGrid": true
+    }
+  },
+  "email": "hello@example.org",
+  "hcaptchaSiteKey": "10000000-ffff-ffff-ffff-000000000001",
+  "nav": [
+    {
+      "label": "About",
+      "href": "#about"
+    },
+    {
+      "label": "Events",
+      "href": "#events"
+    },
+    {
+      "label": "Archive",
+      "href": "#archive"
+    },
+    {
+      "label": "Culture",
+      "href": "#culture"
+    },
+    {
+      "label": "Gallery",
+      "href": "#gallery"
+    },
+    {
+      "label": "Instagram",
+      "href": "#instagram"
+    },
+    {
+      "label": "Contact",
+      "href": "#contact"
+    }
+  ],
+  "address": {
+    "name": "Community Space",
+    "street": "Example Street 1",
+    "postalCode": "00000",
+    "city": "Example City",
+    "country": "Germany",
+    "mapsPlaceName": "Community Space",
+    "mapsUrl": "https://maps.google.com/",
+    "mapsEmbedUrl": "https://www.google.com/maps?q=Germany&output=embed"
+  },
+  "instagram": {
+    "username": "example",
+    "profileUrl": "https://www.instagram.com/",
+    "fallbackFeed": "data/instagram-feed.default.json",
+    "postLimit": 4
+  },
+  "links": {
+    "membership": "pages/membership.html",
+    "crowdfunding": "pages/crowdfunding.html",
+    "booking": "mailto:hello@example.org?subject=Booking",
+    "donate": "pages/bylaws.html"
+  },
+  "images": {
+    "logo": "",
+    "hero": "",
+    "socialPreview": "",
+    "gallery": []
+  },
+  "hero": {
+    "signal": "Culture Space",
+    "title": "A place for community, music and culture.",
+    "video": {
+      "enabled": false,
+      "label": "Featured video",
+      "title": "",
+      "src": ""
+    },
+    "body": "Use local data to describe your project, venue or community.",
+    "actions": [
+      {
+        "label": "Events",
+        "href": "#events",
+        "variant": "primary"
+      },
+      {
+        "label": "Contact",
+        "href": "#contact",
+        "variant": "ghost",
+        "configHref": "booking"
+      },
+      {
+        "label": "Crowdfunding",
+        "href": "pages/crowdfunding.html",
+        "variant": "ghost",
+        "configHref": "crowdfunding"
+      }
+    ],
+    "panel": {
+      "label": "Open space",
+      "text": "Replace this text in your local content file."
+    }
+  },
+  "about": {
+    "number": "01",
+    "title": "About",
+    "paragraphs": [
+      "This section is populated from data files."
+    ],
+    "tags": [
+      "inclusive",
+      "local",
+      "culture"
+    ]
+  },
+  "eventsSection": {
+    "number": "02",
+    "title": "Upcoming Events",
+    "description": "Events are loaded from data files.",
+    "archiveTitle": "Archive",
+    "archiveDescription": "Past events appear here.",
+    "emptyUpcoming": "New dates will be published soon.",
+    "emptyError": "Events could not be loaded.",
+    "labels": {
+      "datePending": "Date follows",
+      "locationPending": "Location follows",
+      "tickets": "Tickets",
+      "instagramPost": "Instagram post",
+      "openEventPage": "Open event page",
+      "archiveOpenLabel": "Open archive page",
+      "eventSectionHeading": "Event",
+      "mediaLabel": "Media",
+      "embedsTitle": "Embedded content",
+      "showEmbedsHeading": true,
+      "ticketTitle": "Ticket shop",
+      "openTickets": "Open tickets",
+      "viewTickets": "View tickets",
+      "galleryLabel": "Gallery",
+      "galleryTitle": "Event images",
+      "galleryDescription": "{count} locally stored archive images.",
+      "showGalleryDescription": true,
+      "notFound": "This event could not be found.",
+      "backEvents": "Back to events",
+      "backArchive": "Back to archive"
+    }
+  },
+  "cultureSection": {
+    "number": "03",
+    "title": "Culture",
+    "description": "Use cards to describe your program areas.",
+    "cards": []
+  },
+  "gallerySection": {
+    "number": "04",
+    "title": "Gallery",
+    "description": "Images are configured in data files."
+  },
+  "instagramSection": {
+    "number": "05",
+    "title": "Instagram Feed",
+    "description": "Latest Instagram posts are loaded live. A local JSON file is used only if the live feed is unavailable.",
+    "buttonLabel": "Open Instagram",
+    "sourceLabel": "Manual feed"
+  },
+  "membershipSection": {
+    "title": "Join the community.",
+    "description": "Use this area for membership, support or participation.",
+    "buttonLabel": "Apply now",
+    "secondaryLabel": "Read rules",
+    "secondaryHref": "pages/bylaws.html"
+  },
+  "contactSection": {
+    "number": "06",
+    "title": "Contact",
+    "description": "Use this section for booking, cooperation and location information.",
+    "emailLabel": "Email",
+    "instagramLabel": "Instagram",
+    "socialLinks": [
+      {
+        "label": "@example",
+        "url": "https://www.instagram.com/"
+      }
+    ],
+    "mapsLabel": "Google Maps",
+    "mapsCardText": "Open location in Maps",
+    "map": {
+      "label": "Location",
+      "title": "Find us on Google Maps",
+      "description": "Open the map link for route and navigation.",
+      "buttonLabel": "Open Google Maps"
+    }
+  },
+  "contactForm": {
+    "title": "Contact",
+    "description": "Contact form for booking, cooperation and general questions.",
+    "backLabel": "Back to homepage",
+    "signal": "Contact",
+    "headline": "Write to us.",
+    "intro": "For booking, cooperation, questions or support requests.",
+    "formTitle": "Contact form",
+    "formDescription": "The subject can be prefilled from the link and changed before sending.",
+    "submitLabel": "Send message",
+    "thanksTitle": "Thank you!",
+    "thanksText": "If the form is connected, your message will be sent.",
+    "successMessage": "Message was sent.",
+    "errorMessage": "Message could not be sent.",
+    "invalidMessage": "Please check the marked fields.",
+    "unreachableMessage": "Server is not reachable. Please try again later.",
+    "labels": {
+      "name": "Name *",
+      "email": "Email *",
+      "phone": "Phone optional",
+      "subject": "Subject *",
+      "message": "Message *",
+      "privacy": "I have read the <a href=\"privacy.html\">privacy policy</a> and agree that my details may be processed for this contact request. *",
+      "captcha": "Captcha"
+    },
+    "validation": {
+      "name": "Please enter your name.",
+      "email": "Please enter a valid email address.",
+      "subject": "Please enter a subject.",
+      "message": "Please write a short message.",
+      "privacy": "Please confirm the privacy policy.",
+      "genericRequired": "Please fill out this field.",
+      "genericConfirm": "Please confirm this field."
+    }
+  },
+  "footer": {
+    "copyright": "© 2026 Community Space",
+    "links": [
+      {
+        "label": "Legal Notice",
+        "href": "pages/legal-notice.html"
+      },
+      {
+        "label": "Privacy",
+        "href": "pages/privacy.html"
+      },
+      {
+        "label": "Bylaws",
+        "href": "pages/bylaws.html"
+      },
+      {
+        "label": "Board",
+        "href": "pages/board.html"
+      }
+    ]
+  }
+}

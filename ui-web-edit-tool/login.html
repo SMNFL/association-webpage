@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Website Editor Login</title>
+    <link rel="stylesheet" href="/editor/styles.css">
+    <script type="module" src="/editor/login.js"></script>
+  </head>
+  <body class="login-page">
+    <main class="login-panel">
+      <a class="brand brand--login" href="/">
+        <span class="brand-mark">W</span>
+        <span>
+          <strong>Website Editor</strong>
+          <small>Local administration</small>
+        </span>
+      </a>
+      <h1>Administrator login</h1>
+      <p>Enter the local editor password to manage website content.</p>
+      <form data-login-form>
+        <label>
+          <span>Password</span>
+          <input name="password" type="password" autocomplete="current-password" required autofocus>
+        </label>
+        <p class="form-errors" data-login-error role="alert" hidden></p>
+        <button class="button" type="submit">Log in</button>
+      </form>
+    </main>
+  </body>
+</html>

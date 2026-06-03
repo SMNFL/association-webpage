@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Website Editor</title>
+    <link rel="stylesheet" href="styles.css">
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="/editor">
+          <span class="brand-mark">W</span>
+          <span>
+            <strong>Website Editor</strong>
+            <small>Local content tool</small>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Editor sections">
+          <button class="nav-item is-active" type="button" data-section="pages">Pages</button>
+          <button class="nav-item" type="button" data-section="events">Events</button>
+          <button class="nav-item" type="button" data-section="archive">Archive</button>
+          <button class="nav-item" type="button" data-section="media">Media</button>
+          <button class="nav-item" type="button" data-section="settings">Settings</button>
+        </nav>
+        <div class="sidebar-status">
+          <span data-save-state>Loading</span>
+          <small>Writes are local and backed up.</small>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="toolbar">
+          <div>
+            <h1 data-view-title>Pages</h1>
+            <p data-view-description>Edit text from structured website data.</p>
+          </div>
+          <div class="toolbar-actions">
+            <button class="button button--ghost" type="button" data-refresh>Refresh</button>
+            <button class="button" type="button" data-save-current>Save</button>
+            <button class="button button--ghost" type="button" data-logout>Log out</button>
+          </div>
+        </header>
+
+        <section class="content-grid">
+          <aside class="panel list-panel">
+            <div class="panel-header">
+              <h2 data-list-title>Editable data</h2>
+              <input class="search-input" type="search" placeholder="Search text" data-search>
+            </div>
+            <div class="tabs" data-dataset-tabs></div>
+            <div class="content-navigation" data-content-navigation>
+              <label>
+                <span>Page or subpage</span>
+                <select data-page-filter></select>
+              </label>
+              <nav class="topic-nav" aria-label="Page sections" data-page-sections></nav>
+            </div>
+            <div class="field-list" data-field-list></div>
+            <div class="event-list" data-event-list hidden></div>
+            <div class="media-list" data-media-list hidden></div>
+          </aside>
+
+          <section class="preview-panel">
+            <div class="preview-toolbar">
+              <div>
+                <strong>Live preview</strong>
+                <small>Click visible text to locate matching fields.</small>
+              </div>
+              <select data-preview-target aria-label="Preview target"></select>
+            </div>
+            <iframe class="preview-frame" title="Website preview" data-preview src="/index.html"></iframe>
+          </section>
+
+          <aside class="panel inspector">
+            <div class="panel-header">
+              <h2 data-inspector-title>Inspector</h2>
+              <span class="path-pill" data-inspector-path>No field selected</span>
+            </div>
+
+            <form class="field-editor" data-field-editor hidden>
+              <div class="group-fields" data-group-fields></div>
+              <div class="form-actions">
+                <button class="button" type="submit">Save element</button>
+                <button class="button button--ghost" type="button" data-cancel-element>Cancel</button>
+              </div>
+            </form>
+
+            <form class="settings-editor" data-settings-editor hidden>
+              <fieldset>
+                <legend>Theme / colors</legend>
+                <label>
+                  <span>Theme preset</span>
+                  <select name="preset">
+                    <option value="sukura">Neon</option>
+                    <option value="minimal-dark">Minimal dark</option>
+                    <option value="high-contrast">High contrast</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </label>
+                <div class="color-grid" data-theme-colors></div>
+              </fieldset>
+              <fieldset>
+                <legend>Layout style</legend>
+                <label><span>Content width</span><input name="containerWidth" type="number" min="880" max="1440" step="10"></label>
+                <label><span>Corner style</span><select name="cornerStyle"><option value="compact">Compact</option><option value="soft">Soft</option><option value="rounded">Rounded</option></select></label>
+                <label><span>Spacing density</span><select name="density"><option value="compact">Compact</option><option value="comfortable">Comfortable</option><option value="spacious">Spacious</option></select></label>
+              </fieldset>
+              <fieldset>
+                <legend>Typography</legend>
+                <label><span>Font family</span><select name="fontFamily"><option value="sora">Sora</option><option value="system">System font</option></select></label>
+                <label><span>Text size</span><select name="textSize"><option value="compact">Compact</option><option value="standard">Standard</option><option value="large">Large</option></select></label>
+              </fieldset>
+              <fieldset>
+                <legend>Advanced settings</legend>
+                <label class="toggle"><input name="ambient" type="checkbox"><span>Show ambient color effects</span></label>
+                <label class="toggle"><input name="backgroundGrid" type="checkbox"><span>Show background grid</span></label>
+              </fieldset>
+              <div class="form-actions">
+                <button class="button" type="submit">Save settings</button>
+                <button class="button button--ghost" type="button" data-cancel-settings>Discard changes</button>
+                <button class="button button--ghost" type="button" data-export-settings>Download JSON</button>
+              </div>
+            </form>
+
+            <form class="event-editor" data-event-editor hidden>
+              <div class="form-errors" data-event-errors hidden></div>
+              <label>
+                <span>Event title *</span>
+                <input name="title" required placeholder="Example live event">
+              </label>
+              <div class="form-row">
+                <label>
+                  <span>Page slug</span>
+                  <input name="id" placeholder="auto-created from title">
+                </label>
+                <label>
+                  <span>Status</span>
+                  <select name="status">
+                    <option value="upcoming">Active</option>
+                    <option value="archive">Archive</option>
+                  </select>
+                  <small class="field-help" data-status-help></small>
+                </label>
+              </div>
+              <div class="form-row">
+                <label>
+                  <span>Event date</span>
+                  <input name="date" type="date">
+                </label>
+                <label>
+                  <span>Display date text</span>
+                  <input name="displayDate" placeholder="19. September 2026">
+                </label>
+              </div>
+              <label>
+                <span>Location</span>
+                <input name="location" placeholder="Example venue, Example city">
+              </label>
+              <label>
+                <span>Short teaser</span>
+                <textarea name="excerpt" rows="3" placeholder="Shown on event cards and at the top of the event page"></textarea>
+              </label>
+              <label>
+                <span>Description paragraphs</span>
+                <textarea name="description" rows="5" placeholder="One paragraph per line"></textarea>
+              </label>
+              <label>
+                <span>Cover image path</span>
+                <input name="image" list="media-paths" placeholder="assets/images/events/example.jpg">
+              </label>
+              <label>
+                <span>Image crop</span>
+                <input name="imagePosition" placeholder="center center">
+              </label>
+              <label>
+                <span>Tags</span>
+                <input name="tags" placeholder="music, culture">
+              </label>
+              <div class="ticket-fields" data-ticket-fields>
+                <small class="field-help">Ticket fields are only used for active events. Archiving clears them automatically. For Clevertix embeds, use the HTTPS ticket-shop URL ending in ?iframe=1.</small>
+                <label>
+                  <span>Ticket URL (opens in new tab)</span>
+                  <input name="ticketUrl">
+                </label>
+                <label>
+                  <span>Ticket embed URL (shown inside event page)</span>
+                  <input name="ticketEmbed" placeholder="https://tickets.clevertix.de/.../?iframe=1">
+                </label>
+                <label>
+                  <span>Ticket embed height in px</span>
+                  <input name="ticketEmbedHeight" type="number" min="240" max="1200" step="1" placeholder="316">
+                  <small class="field-help">Optional. Leave empty for 316 px. Increase this if a shop contains more ticket types.</small>
+                </label>
+              </div>
+              <label>
+                <span>Gallery image paths</span>
+                <textarea name="gallery" rows="5" placeholder="assets/images/eventsArchive/.../display/001.jpg"></textarea>
+              </label>
+              <div class="section-builder">
+                <div class="section-builder__header">
+                  <span>Extra page sections</span>
+                  <button class="button button--ghost button--small" type="button" data-add-section>Add section</button>
+                </div>
+                <div class="section-list" data-section-list></div>
+              </div>
+              <div class="form-actions">
+                <button class="button" type="submit" data-save-event>Save event</button>
+                <button class="button button--ghost" type="button" data-preview-event>Preview page</button>
+                <button class="button button--ghost" type="button" data-new-event>New event</button>
+                <button class="button button--danger" type="button" data-archive-event>Archive event</button>
+                <button class="button button--danger" type="button" data-delete-event>Delete event</button>
+              </div>
+            </form>
+
+            <form class="media-upload" data-media-upload hidden>
+              <label>
+                <span>Image file</span>
+                <input name="file" type="file" accept="image/*">
+              </label>
+              <div class="form-row">
+                <label>
+                  <span>Folder</span>
+                  <select name="kind">
+                    <option value="editor">Editor media</option>
+                    <option value="event">Active events</option>
+                    <option value="eventArchive">Event archive</option>
+                    <option value="gallery">Homepage gallery</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Event slug</span>
+                  <input name="eventSlug" placeholder="uses selected event when empty">
+                </label>
+              </div>
+              <label>
+                <span>Event date</span>
+                <input name="date" type="date">
+              </label>
+              <p class="field-help">For archive uploads, empty event fields use the selected event date and slug.</p>
+              <button class="button" type="submit">Upload image</button>
+            </form>
+
+            <datalist data-media-datalist id="media-paths"></datalist>
+          </aside>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

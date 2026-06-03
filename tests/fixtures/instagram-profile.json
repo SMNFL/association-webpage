@@ -1,0 +1,68 @@
+{
+  "data": {
+    "user": {
+      "username": "example",
+      "profile_pic_url": "https://example.test/profile.jpg",
+      "edge_owner_to_timeline_media": {
+        "count": 4,
+        "edges": [
+          {
+            "node": {
+              "id": "1",
+              "shortcode": "AAA111",
+              "display_url": "https://example.test/one.jpg",
+              "taken_at_timestamp": 1770000000,
+              "edge_media_to_caption": {
+                "edges": [{ "node": { "text": "PROGRAMM MAI 2026\nWeitere Infos" } }]
+              }
+            }
+          },
+          {
+            "node": {
+              "id": "2",
+              "shortcode": "BBB222",
+              "display_url": "https://example.test/two.jpg",
+              "taken_at_timestamp": 1770000100,
+              "edge_media_to_caption": {
+                "edges": [{ "node": { "text": "Parking garage dancefloor" } }]
+              }
+            }
+          },
+          {
+            "node": {
+              "id": "3",
+              "shortcode": "CCC333",
+              "display_url": "https://example.test/three.jpg",
+              "taken_at_timestamp": 1770000200,
+              "edge_media_to_caption": {
+                "edges": [{ "node": { "text": "Heinz Ficktion - Vol. 0010" } }]
+              }
+            }
+          },
+          {
+            "node": {
+              "id": "4",
+              "shortcode": "DDD444",
+              "display_url": "https://example.test/four.jpg",
+              "taken_at_timestamp": 1770000300,
+              "edge_media_to_caption": {
+                "edges": [{ "node": { "text": "Early birds!" } }]
+              }
+            }
+          },
+          {
+            "node": {
+              "id": "5",
+              "shortcode": "EEE555",
+              "display_url": "https://example.test/five.jpg",
+              "taken_at_timestamp": 1770000400,
+              "edge_media_to_caption": {
+                "edges": [{ "node": { "text": "Should be outside limit" } }]
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

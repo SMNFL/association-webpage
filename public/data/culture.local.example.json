@@ -1,0 +1,27 @@
+{
+  "backLabel": "Back to overview",
+  "themes": [
+    {
+      "id": "example",
+      "number": "01",
+      "title": "Example Theme",
+      "description": "Describe this program area.",
+      "image": "assets/images/example.jpg",
+      "imageAlt": "Example image",
+      "links": [
+        { "label": "Instagram", "url": "https://www.instagram.com/" }
+      ],
+      "leadsTitle": "Program leads",
+      "leads": [
+        {
+          "name": "Name",
+          "role": "Role",
+          "paragraphs": ["Short introduction."],
+          "links": []
+        }
+      ],
+      "artistsTitle": "Artists",
+      "artists": []
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "sukura-org",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server/index.js",
+    "editor": "EDITOR_MODE=1 node server/index.js",
+    "start": "NODE_ENV=production node server/index.js",
+    "smtp:check": "node scripts/check-smtp.js",
+    "security:setup-editor": "node scripts/setup-editor-security.js",
+    "release:check-public": "node scripts/check-public-release.js",
+    "release:check": "npm run release:check-public && npm run check && npm test && npm run test:e2e",
+    "test": "node --test tests/unit/*.test.js tests/editor/*.test.js",
+    "test:unit": "node --test tests/unit/*.test.js tests/editor/*.test.js",
+    "test:e2e": "playwright test tests/e2e",
+    "check": "node --check server/index.js && node --check server/mailer.js && node --check server/editor/content-store.js && node --check server/editor/site-theme.js && node --check server/editor/router.js && node --check server/security/editor-auth.js && node --check server/security/headers.js && node --check server/api/contact.js && node --check server/api/instagram.js && node --check scripts/check-public-release.js && node --check scripts/check-smtp.js && node --check public/js/security.js && node --check public/js/theme.js && node --check public/js/main.js && node --check public/js/page.js && node --check public/js/contact.js && node --check public/js/contact-live.js && node --check public/js/culture-detail.js && node --check public/js/event-model.js && node --check public/js/events.js && node --check public/js/event-detail.js && node --check public/js/instagram-live.js && node --check ui-web-edit-tool/editor-model.js && node --check ui-web-edit-tool/app.js && node --check ui-web-edit-tool/login.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "helmet": "^8.2.0",
+    "nodemailer": "^8.0.10",
+    "sanitize-html": "^2.17.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.1"
+  }
+}

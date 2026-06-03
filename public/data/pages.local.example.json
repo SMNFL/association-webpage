@@ -1,0 +1,31 @@
+{
+  "legalNotice": {
+    "title": "Legal Notice",
+    "description": "Legal notice for your organization",
+    "backLabel": "Back to homepage",
+    "sections": [
+      {
+        "heading": "Your Organization",
+        "blocks": [
+          { "type": "address", "lines": ["Organization name", "Street and city"] },
+          { "type": "paragraph", "value": "Register court and registration number." },
+          { "type": "paragraph", "value": "Represented by: Name<br>E-mail: <a href=\"mailto:hello@example.com\">hello@example.com</a>" }
+        ]
+      }
+    ]
+  },
+  "membership": {
+    "title": "Apply",
+    "description": "Membership application",
+    "hero": {
+      "signal": "Application",
+      "title": "Join the community.",
+      "description": "Describe who can apply and what happens next."
+    },
+    "form": {
+      "subject": "Membership application",
+      "source": "/pages/membership.html",
+      "hcaptchaSiteKey": "YOUR_HCAPTCHA_SITE_KEY"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+.DS_Store
+.git
+.github
+.cache
+.editor-backups
+.env
+.env.*
+!.env.example
+node_modules
+test-results
+playwright-report
+tests
+docs
+public/js/events-data.js
+npm-debug.log
+*.log

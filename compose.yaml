@@ -1,0 +1,27 @@
+services:
+  website:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  editor:
+    profiles:
+      - editor
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      EDITOR_MODE: "1"
+      HOST: "0.0.0.0"
+      EDITOR_ALLOW_DOCKER_BRIDGE: "1"
+    ports:
+      - "127.0.0.1:${EDITOR_PORT:-8081}:8080"
+    volumes:
+      - ./public:/app/public
+      - ./ui-web-edit-tool:/app/ui-web-edit-tool:ro
+      - ./.editor-backups:/app/.editor-backups
+    command: ["node", "server/index.js"]
