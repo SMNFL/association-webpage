@@ -361,7 +361,10 @@ test("Bylaws table of contents stays visible while scrolling", async ({ page }) 
   });
   expect(initialDesktop.tocTop).toBeGreaterThanOrEqual(initialDesktop.heroBottom);
 
-  await page.evaluate(() => window.scrollTo(0, 1600));
+  await page.evaluate(() => {
+    window.scrollTo(0, Math.max(0, (document.documentElement.scrollHeight - window.innerHeight) / 2));
+    window.dispatchEvent(new Event("scroll"));
+  });
   await expect(toc).toBeVisible();
   await expect(toc).toHaveAttribute("data-toc-pin", "fixed");
   const fixedDesktop = await toc.evaluate((node) => Math.round(node.getBoundingClientRect().top));
@@ -410,6 +413,130 @@ test("Bylaws table of contents stays visible while scrolling", async ({ page }) 
     };
   });
   expect(bottomMobile.tocBottom).toBeLessThanOrEqual(bottomMobile.lastBottom + 4);
+});
+
+test("Crowdfunding table of contents uses the bounded pinned document layout", async ({ page }) => {
+  await page.route("**/data/pages.local.json", (route) => route.fulfill({
+    json: {
+      crowdfunding: {
+        title: "Crowdfunding",
+        layout: "document",
+        showToc: true,
+        tocTitle: "Contents",
+        sections: Array.from({ length: 10 }, (_, index) => ({
+          id: `crowdfunding-section-${index + 1}`,
+          heading: `Crowdfunding section ${index + 1}`,
+          paragraphs: [
+            index === 1
+              ? "First line<br>Second line"
+              : "Long crowdfunding example text.".repeat(80)
+          ]
+        }))
+      }
+    }
+  }));
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/pages/crowdfunding.html");
+  const toc = page.locator(".statute-toc");
+  await expect(toc).toBeVisible();
+  await expect(toc).toHaveAttribute("data-toc-pin", "before");
+  const initialDesktop = await page.evaluate(() => {
+    const tocRect = document.querySelector(".statute-toc").getBoundingClientRect();
+    const heroRect = document.querySelector(".statute-hero").getBoundingClientRect();
+    return {
+      tocTop: Math.round(tocRect.top),
+      heroBottom: Math.round(heroRect.bottom)
+    };
+  });
+  expect(initialDesktop.tocTop).toBeGreaterThanOrEqual(initialDesktop.heroBottom);
+
+  await page.evaluate(() => {
+    window.scrollTo(0, Math.max(0, (document.documentElement.scrollHeight - window.innerHeight) / 2));
+    window.dispatchEvent(new Event("scroll"));
+  });
+  await expect(toc).toHaveAttribute("data-toc-pin", "fixed");
+  const fixedDesktop = await toc.evaluate((node) => Math.round(node.getBoundingClientRect().top));
+  expect(Math.abs(fixedDesktop - 96)).toBeLessThanOrEqual(4);
+  const brRendering = await page.locator("#crowdfunding-section-2 p").evaluate((node) => ({
+    html: node.innerHTML,
+    brCount: node.querySelectorAll("br").length
+  }));
+  expect(brRendering.html).not.toContain("&lt;br&gt;");
+  expect(brRendering.brCount).toBe(1);
+
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const bottomDesktop = await page.evaluate(() => {
+    const tocRect = document.querySelector(".statute-toc").getBoundingClientRect();
+    const sections = document.querySelectorAll(".statute-section");
+    const lastRect = sections[sections.length - 1].getBoundingClientRect();
+    return {
+      tocBottom: Math.round(tocRect.bottom),
+      lastBottom: Math.round(lastRect.bottom)
+    };
+  });
+  expect(bottomDesktop.tocBottom).toBeLessThanOrEqual(bottomDesktop.lastBottom + 4);
+
+  await page.setViewportSize({ width: 480, height: 800 });
+  await page.goto("/pages/crowdfunding.html");
+  await expect(toc).toBeVisible();
+  await expect(toc).toHaveAttribute("data-toc-pin", "before");
+  const mobileToggle = page.locator("[data-toc-toggle]");
+  await expect(mobileToggle).toBeVisible();
+  await expect(mobileToggle).toHaveAttribute("aria-expanded", "false");
+  const initialMobile = await page.evaluate(() => {
+    const tocRect = document.querySelector(".statute-toc").getBoundingClientRect();
+    const heroRect = document.querySelector(".statute-hero").getBoundingClientRect();
+    return {
+      tocTop: Math.round(tocRect.top),
+      heroBottom: Math.round(heroRect.bottom),
+      listDisplay: getComputedStyle(document.querySelector("[data-page-toc-list]")).display
+    };
+  });
+  expect(initialMobile.tocTop).toBeGreaterThanOrEqual(initialMobile.heroBottom);
+  expect(initialMobile.listDisplay).toBe("none");
+
+  await page.evaluate(() => {
+    window.scrollTo(0, Math.max(0, (document.documentElement.scrollHeight - window.innerHeight) / 2));
+    window.dispatchEvent(new Event("scroll"));
+  });
+  await expect(toc).toHaveAttribute("data-toc-pin", "fixed");
+  const fixedMobile = await page.evaluate(() => {
+    const tocRect = document.querySelector(".statute-toc").getBoundingClientRect();
+    const documentMargin = parseFloat(getComputedStyle(document.querySelector(".statute-document")).marginTop);
+    return {
+      top: Math.round(tocRect.top),
+      height: Math.round(tocRect.height),
+      documentMargin
+    };
+  });
+  expect(Math.abs(fixedMobile.top - 80)).toBeLessThanOrEqual(4);
+  expect(fixedMobile.height).toBeLessThanOrEqual(58);
+  expect(fixedMobile.documentMargin).toBeLessThanOrEqual(40);
+
+  await mobileToggle.evaluate((node) => node.click());
+  await expect(mobileToggle).toHaveAttribute("aria-expanded", "true");
+  await page.waitForTimeout(100);
+  const openMobile = await page.evaluate(() => {
+    const tocRect = document.querySelector(".statute-toc").getBoundingClientRect();
+    const listRect = document.querySelector("[data-page-toc-list]").getBoundingClientRect();
+    return {
+      pin: document.querySelector(".statute-toc").dataset.tocPin,
+      scrollY: Math.round(window.scrollY),
+      tocHeight: Math.round(tocRect.height),
+      listHeight: Math.round(listRect.height),
+      listDisplay: getComputedStyle(document.querySelector("[data-page-toc-list]")).display,
+      listWidth: Math.round(listRect.width)
+    };
+  });
+  expect(openMobile.listDisplay).toBe("grid");
+  expect(openMobile.pin).toBe("fixed");
+  expect(openMobile.tocHeight).toBeLessThanOrEqual(58);
+  expect(openMobile.listHeight).toBeLessThanOrEqual(216);
+  expect(openMobile.listWidth).toBeLessThanOrEqual(280);
+
+  await page.locator('[data-page-toc-list] a[href="#crowdfunding-section-1"]').click();
+  await expect(mobileToggle).toHaveAttribute("aria-expanded", "false");
 });
 
 test("local page overrides render German content through English canonical keys", async ({ page }) => {

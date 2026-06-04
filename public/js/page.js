@@ -24,6 +24,8 @@ const pageAliases = {
   membership: ["mitglied"]
 };
 let cleanupStatuteTocBounds = () => {};
+let cleanupStatuteTocDisclosure = () => {};
+const fixedTocPages = new Set(["bylaws", "crowdfunding"]);
 
 function setText(selector, value = "") {
   document.querySelectorAll(selector).forEach((node) => {
@@ -62,15 +64,21 @@ function renderSections(page) {
   node.innerHTML = (page.sections || []).map((section) => `
     <section class="statute-section"${section.id ? ` id="${escapeHtml(section.id)}"` : ""}>
       <h2>${escapeHtml(section.heading || "")}</h2>
-      ${(section.paragraphs || []).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
+      ${(section.paragraphs || []).map(renderPlainParagraph).join("")}
       ${(section.blocks || []).map(renderBlock).join("")}
     </section>
   `).join("");
 }
 
+function renderPlainParagraph(value = "") {
+  return `<p>${escapeHtml(value)
+    .replace(/&lt;br\s*\/?&gt;/gi, "<br>")
+    .replace(/(?:\r\n|\r|\n)/g, "<br>")}</p>`;
+}
+
 function renderBlock(block) {
   if (!block) return "";
-  if (typeof block === "string") return `<p>${escapeHtml(block)}</p>`;
+  if (typeof block === "string") return renderPlainParagraph(block);
   if (block.type === "address") return `<address>${(block.lines || []).map(escapeHtml).join("<br>")}</address>`;
   if (block.type === "html") return sanitizeRichHtml(block.value || "");
   if (block.type === "paragraph") return `<p>${sanitizeRichHtml(block.value || "")}</p>`;
@@ -112,10 +120,11 @@ function renderDocumentPage(page, pageKey = "") {
 
   const sections = page.sections || [];
   const hasToc = Boolean(page.showToc && sections.some((section) => section.id));
+  const hasFixedToc = hasToc && fixedTocPages.has(pageKey);
   if (main) {
     main.classList.toggle("legal-page--wide", page.layout === "document");
     main.classList.toggle("statute-page", page.layout === "document");
-    main.classList.toggle("statute-page--fixed-toc", pageKey === "bylaws" && hasToc);
+    main.classList.toggle("statute-page--fixed-toc", hasFixedToc);
   }
   if (layout) layout.classList.toggle("statute-layout--single", !hasToc);
   if (toc) toc.hidden = !hasToc;
@@ -129,7 +138,99 @@ function renderDocumentPage(page, pageKey = "") {
   }
 
   renderSections(page);
-  setupStatuteTocBounds(pageKey === "bylaws" && hasToc);
+  setupStatuteTocDisclosure(toc, hasFixedToc, page.tocTitle || "Contents");
+  setupStatuteTocBounds(hasFixedToc);
+}
+
+function setupStatuteTocDisclosure(toc, enabled, label = "Contents") {
+  cleanupStatuteTocDisclosure();
+  cleanupStatuteTocDisclosure = () => {};
+
+  if (!toc || !enabled) {
+    toc?.querySelector("[data-toc-toggle]")?.remove();
+    toc?.removeAttribute("data-toc-disclosure");
+    toc?.removeAttribute("data-toc-open");
+    return;
+  }
+
+  const list = toc.querySelector("[data-page-toc-list]");
+  if (!list) return;
+
+  toc.dataset.tocDisclosure = "";
+  toc.id ||= "document-toc";
+  list.id ||= `${toc.id}-list`;
+
+  let button = toc.querySelector("[data-toc-toggle]");
+  if (!button) {
+    button = document.createElement("button");
+    button.type = "button";
+    button.className = "statute-toc__toggle";
+    button.dataset.tocToggle = "";
+    button.innerHTML = `
+      <span data-toc-toggle-label></span>
+      <span class="statute-toc__chevron" aria-hidden="true"></span>
+    `;
+    toc.prepend(button);
+  }
+
+  const media = window.matchMedia("(max-width: 980px)");
+  let pointerScrollTop = 0;
+  const setOpen = (open, options = {}) => {
+    const shouldRestoreScroll = Boolean(media.matches && options.preserveScroll);
+    const scrollTop = shouldRestoreScroll ? pointerScrollTop : window.scrollY;
+    const nextOpen = media.matches ? open : true;
+    toc.dataset.tocOpen = String(nextOpen);
+    button.setAttribute("aria-expanded", String(nextOpen));
+    pointerScrollTop = 0;
+    if (shouldRestoreScroll) {
+      const restoreScroll = () => window.scrollTo(0, scrollTop);
+      restoreScroll();
+      window.requestAnimationFrame(() => {
+        restoreScroll();
+        window.requestAnimationFrame(restoreScroll);
+      });
+      let restoreCount = 0;
+      const restoreTimer = window.setInterval(() => {
+        restoreScroll();
+        restoreCount += 1;
+        if (restoreCount >= 5) window.clearInterval(restoreTimer);
+      }, 40);
+    }
+  };
+  const handleToggle = (event) => {
+    event.preventDefault();
+    if (!pointerScrollTop) pointerScrollTop = window.scrollY;
+    setOpen(toc.dataset.tocOpen !== "true", { preserveScroll: true });
+  };
+  const handlePointerDown = (event) => {
+    if (!media.matches) return;
+    pointerScrollTop = window.scrollY;
+    event.preventDefault();
+  };
+  const handleResize = () => setOpen(!media.matches);
+  const handleListClick = (event) => {
+    if (media.matches && event.target.closest("a")) setOpen(false);
+  };
+
+  button.querySelector("[data-toc-toggle-label]").textContent = label;
+  button.setAttribute("aria-controls", list.id);
+  button.setAttribute("aria-label", label);
+  button.addEventListener("pointerdown", handlePointerDown);
+  button.addEventListener("mousedown", handlePointerDown);
+  button.addEventListener("touchstart", handlePointerDown, { passive: false });
+  button.addEventListener("click", handleToggle);
+  list.addEventListener("click", handleListClick);
+  media.addEventListener("change", handleResize);
+  setOpen(!media.matches);
+
+  cleanupStatuteTocDisclosure = () => {
+    button.removeEventListener("pointerdown", handlePointerDown);
+    button.removeEventListener("mousedown", handlePointerDown);
+    button.removeEventListener("touchstart", handlePointerDown);
+    button.removeEventListener("click", handleToggle);
+    list.removeEventListener("click", handleListClick);
+    media.removeEventListener("change", handleResize);
+  };
 }
 
 function setupStatuteTocBounds(enabled) {
@@ -146,6 +247,7 @@ function setupStatuteTocBounds(enabled) {
   const layout = document.querySelector(".statute-layout");
   const documentNode = document.querySelector("[data-page-sections]");
   let frame = 0;
+  let resizeObserver;
 
   const update = () => {
     frame = 0;
@@ -178,12 +280,17 @@ function setupStatuteTocBounds(enabled) {
 
   window.addEventListener("scroll", schedule, { passive: true });
   window.addEventListener("resize", schedule);
+  if ("ResizeObserver" in window) {
+    resizeObserver = new ResizeObserver(schedule);
+    resizeObserver.observe(toc);
+  }
   document.fonts?.ready.then(schedule).catch(() => {});
   schedule();
 
   cleanupStatuteTocBounds = () => {
     window.removeEventListener("scroll", schedule);
     window.removeEventListener("resize", schedule);
+    resizeObserver?.disconnect();
     if (frame) window.cancelAnimationFrame(frame);
     toc.removeAttribute("data-toc-pin");
     toc.style.removeProperty("--toc-anchor-top");

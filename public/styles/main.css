@@ -660,6 +660,10 @@ h2 {
   color: var(--color-text);
 }
 
+.statute-toc__toggle {
+  display: none;
+}
+
 .statute-page--fixed-toc .statute-toc[data-reveal] {
   opacity: 1;
   transform: none;
@@ -2001,10 +2005,19 @@ a.event-card:focus-visible {
   }
 
   .statute-page--fixed-toc .statute-toc:not([hidden]) {
+    display: grid;
+    justify-items: end;
+    position: relative;
     right: var(--space-3);
     left: var(--space-3);
     width: auto;
-    max-height: min(18rem, 38vh);
+    max-height: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+    backdrop-filter: none;
     z-index: 80;
   }
 
@@ -2020,7 +2033,84 @@ a.event-card:focus-visible {
   }
 
   .statute-page--fixed-toc .statute-document {
-    margin-top: calc(min(18rem, 38vh) + var(--space-5));
+    margin-top: var(--space-5);
+  }
+
+  .statute-toc[data-toc-disclosure] h2 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .statute-toc[data-toc-disclosure] .statute-toc__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    max-width: min(18rem, calc(100vw - var(--space-6)));
+    padding: 0.68rem 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-strong);
+    color: var(--color-text);
+    box-shadow: var(--shadow-card);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 900;
+    line-height: 1;
+    text-transform: uppercase;
+    cursor: pointer;
+    backdrop-filter: blur(24px);
+  }
+
+  .statute-toc[data-toc-disclosure] .statute-toc__toggle:hover,
+  .statute-toc[data-toc-disclosure] .statute-toc__toggle:focus-visible {
+    border-color: color-mix(in srgb, var(--color-cyan) 60%, var(--color-border));
+    color: var(--color-cyan);
+  }
+
+  .statute-toc__chevron {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg) translateY(-0.12rem);
+    transition: transform var(--transition);
+  }
+
+  .statute-toc[data-toc-open="true"] .statute-toc__chevron {
+    transform: rotate(225deg) translate(-0.08rem, -0.08rem);
+  }
+
+  .statute-toc[data-toc-disclosure] ol {
+    position: absolute;
+    top: calc(100% + var(--space-2));
+    right: 0;
+    display: none;
+    width: min(17rem, calc(100vw - var(--space-6)));
+    max-height: min(13rem, calc(100vh - 9rem));
+    margin-top: 0;
+    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--color-surface-strong) 84%, transparent);
+    box-shadow: var(--shadow-card);
+    overflow-y: auto;
+    overflow-x: hidden;
+    backdrop-filter: blur(24px);
+  }
+
+  .statute-toc[data-toc-disclosure][data-toc-open="true"] ol {
+    display: grid;
+  }
+
+  .statute-toc[data-toc-disclosure] a {
+    font-size: 0.68rem;
+    line-height: 1.26;
   }
 
   .hero {

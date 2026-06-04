@@ -166,6 +166,10 @@ Netlify is not required for the static website. For live Instagram on a static h
 
 The full operations guide, rotation steps, and residual risks are in [`docs/SECURITY.md`](docs/SECURITY.md). For larger new features, update this README with a short summary and add an operations detail document under `docs/` when relevant.
 
+## License
+
+This repository is available for non-commercial use under the PolyForm Noncommercial License 1.0.0. Attribution to SMNFL Github page is required. See [`LICENSE.md`](LICENSE.md).
+
 ## First Public Release
 
 1. Run `npm run release:check-public`.
