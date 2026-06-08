@@ -16,6 +16,7 @@ services:
       - .env
     environment:
       EDITOR_MODE: "1"
+      EDITOR_LOCAL_ONLY: "true"
       HOST: "0.0.0.0"
       EDITOR_ALLOW_DOCKER_BRIDGE: "1"
     ports:

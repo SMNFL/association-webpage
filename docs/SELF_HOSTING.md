@@ -6,7 +6,7 @@ The website can run as a Node service on your own server. The Node server serves
 
 ```bash
 npm install --omit=dev
-PORT=8080 npm run start
+NODE_ENV=production TRUST_PROXY=loopback PORT=8080 npm run start
 ```
 
 `npm install` installs dependencies locally under `node_modules/`. The public Node service does not serve the editor. The editor is started separately and only locally with `npm run editor`. Details: [`SECURITY.md`](SECURITY.md).
@@ -89,6 +89,14 @@ docker compose down
 ```
 
 The editor service sets `EDITOR_MODE=1`, binds the container process to `0.0.0.0` so Docker port forwarding works, and publishes it only on host `127.0.0.1:${EDITOR_PORT:-8081}`. It also enables `EDITOR_ALLOW_DOCKER_BRIDGE=1`, which allows Docker's private bridge address through the editor's localhost guard. Do not expose this service through a public reverse proxy.
+
+`EDITOR_LOCAL_ONLY=true` is required for editor startup. If you need to reach the editor from another machine, use SSH tunneling or a VPN/private admin network. For SSH:
+
+```bash
+ssh -L 8081:127.0.0.1:8081 user@server
+```
+
+Then open `http://127.0.0.1:8081/editor/` locally.
 
 The editor service bind-mounts `./public` into the container, so saved content is written back to your local working copy. Use the normal website service for public deployment.
 
@@ -237,6 +245,8 @@ HTTPS should always be enabled in production through Let's Encrypt or an equival
 
 The application sets security headers itself. The reverse proxy must not remove those headers. HSTS is added in production.
 
+Set `TRUST_PROXY=loopback` when Caddy or Nginx runs on the same host and forwards to `127.0.0.1:8080`. Use `TRUST_PROXY=private` only when the reverse proxy is on a trusted private network. Leave `TRUST_PROXY=false` when the Node app is not behind a proxy. The app intentionally rejects broad proxy trust values.
+
 Do not expose the editor through this public reverse proxy. Start it only locally with `npm run editor` and use `http://127.0.0.1:8080/editor/`.
 
 ## Without Your Own Website URL
@@ -346,6 +356,14 @@ HCAPTCHA_SECRET=your-private-secret
 ```
 
 When `HCAPTCHA_SECRET` is set, the server verifies incoming captcha tokens. Without this variable, captcha verification stays disabled.
+
+In production, if SMTP contact mail is configured, `HCAPTCHA_SECRET` is required unless you deliberately set:
+
+```env
+CONTACT_ALLOW_WITHOUT_CAPTCHA=1
+```
+
+Use that opt-out only when another layer, such as a CDN/WAF rule or host-level abuse protection, provides equivalent form protection.
 
 Alternatively, set the visible site key locally in JSON:
 

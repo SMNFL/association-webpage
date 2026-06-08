@@ -3,6 +3,14 @@ const MAX_LIMIT = 4;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 8000;
+const SECURITY_HEADERS = {
+  "Content-Security-Policy": "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'; script-src 'self' https://js.hcaptcha.com https://www.instagram.com https://tickets.clevertix.de https://*.hcaptcha.com; style-src 'self' 'unsafe-inline' https://tickets.clevertix.de; img-src 'self' data: https:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://www.google.com https://www.paypal.com https://tickets.clevertix.de https://www.instagram.com https://open.spotify.com https://w.soundcloud.com https://bandcamp.com https://challonge.com https://*.hcaptcha.com; connect-src 'self' https://hcaptcha.com https://*.hcaptcha.com; font-src 'self' data:",
+  "Permissions-Policy": 'camera=(), microphone=(), geolocation=(), payment=(), encrypted-media=(self "https://www.youtube.com" "https://www.youtube-nocookie.com" "https://open.spotify.com" "https://w.soundcloud.com" "https://bandcamp.com")',
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "SAMEORIGIN"
+};
 
 let cachedFeed = null;
 let cachedAt = 0;
@@ -11,6 +19,7 @@ function json(statusCode, body) {
   return {
     statusCode,
     headers: {
+      ...SECURITY_HEADERS,
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": statusCode === 200 ? "public, max-age=300, s-maxage=600" : "no-store"
     },

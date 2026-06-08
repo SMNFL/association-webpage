@@ -28,7 +28,7 @@ npm run security:setup-editor
 npm run editor
 ```
 
-Open the editor at `http://127.0.0.1:8080/editor/` and log in with the local admin password. The editor only runs in `EDITOR_MODE=1` on `127.0.0.1`, writes only allowlisted content files, and generates event artifacts from structured data.
+Open the editor at `http://127.0.0.1:8080/editor/` and log in with the local admin password. The editor only runs in `EDITOR_MODE=1` with `EDITOR_LOCAL_ONLY=true` on `127.0.0.1`, writes only allowlisted content files, and generates event artifacts from structured data.
 
 With Docker, the default service starts the public website only. To run the local editor in Docker, first generate editor credentials and then start the opt-in editor profile:
 
@@ -102,6 +102,8 @@ The Compose service binds to `127.0.0.1:8080` by default and belongs behind an H
 Required environment variables:
 
 ```bash
+NODE_ENV=production
+TRUST_PROXY=loopback
 SMTP_HOST=smtp.example.org
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -111,12 +113,14 @@ SMTP_USER=mail-user
 SMTP_PASS=mail-password
 SMTP_FROM=website@example.org
 CONTACT_TO=contact@example.org
+HCAPTCHA_SITE_KEY=public-site-key
+HCAPTCHA_SECRET=private-secret
+CONTACT_ALLOW_WITHOUT_CAPTCHA=0
 ```
 
 Optional:
 
 ```bash
-HCAPTCHA_SECRET=...
 PORT=8080
 ```
 
@@ -132,7 +136,7 @@ Test SMTP access in isolation:
 npm run smtp:check
 ```
 
-Set the visible hCaptcha site key locally in `site.local.json` as `hcaptchaSiteKey` and for the membership form in `pages.local.json` as `membership.form.hcaptchaSiteKey`. Site keys are public browser configuration, but in a reusable template they still belong in the local deployment.
+Set the visible hCaptcha site key with `HCAPTCHA_SITE_KEY` on the Node server, or locally in `site.local.json` as `hcaptchaSiteKey` and for the membership form in `pages.local.json` as `membership.form.hcaptchaSiteKey`. Site keys are public browser configuration, but in a reusable template they still belong in the local deployment. In production, SMTP contact mail requires `HCAPTCHA_SECRET` unless `CONTACT_ALLOW_WITHOUT_CAPTCHA=1` is deliberately set with equivalent upstream abuse protection.
 
 ## Tests
 
@@ -159,7 +163,7 @@ Netlify is not required for the static website. For live Instagram on a static h
 ## Security
 
 - The public website stays readable without login.
-- `/editor` and `/api/editor/**` are only locally reachable and protected by password, session cookie, CSRF checks, and login rate limiting.
+- `/editor` and `/api/editor/**` are only directly locally reachable and protected by password, session cookie, CSRF checks, forwarded-header rejection, login lockouts, and rate limits.
 - Security headers, content sanitizing, URL allowlisting, upload signature checks, and API limits reduce common web risks.
 - `.env` contains local secrets and must not be committed.
 - Local JSON overrides, generated event pages, and deployment-specific media are intentionally ignored.

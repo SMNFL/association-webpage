@@ -10,6 +10,8 @@ import { createEditorRouter } from "./editor/router.js";
 import { assertEditorSecurityEnv } from "./security/editor-auth.js";
 import { securityHeaders } from "./security/headers.js";
 import { createMemoryRateLimiter } from "./security/rate-limit.js";
+import { securityLog } from "./security/logging.js";
+import { configureTrustProxy, parseTrustProxy, sameOriginOrReferer } from "./security/request-policy.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -17,7 +19,9 @@ const publicDir = path.join(rootDir, "public");
 const app = express();
 const port = Number(process.env.PORT || 8080);
 const editorMode = process.env.EDITOR_MODE === "1";
+configureTrustProxy(app);
 if (editorMode) assertEditorSecurityEnv();
+if (process.env.NODE_ENV === "production") assertProductionSecurityEnv();
 
 app.disable("x-powered-by");
 app.use(securityHeaders);
@@ -32,8 +36,6 @@ if (editorMode) {
 app.get("/healthz", (req, res) => {
   res.status(200).json({ ok: true, service: "website-template", timestamp: new Date().toISOString() });
 });
-
-app.get(["/api/instagram-feed", "/.netlify/functions/instagram-feed"], handleInstagramRequest);
 
 app.get(["/pages/contact.html", "/pages/membership.html"], async (req, res, next) => {
   try {
@@ -60,13 +62,23 @@ app.get([
   }
 });
 
+const instagramLimiter = createMemoryRateLimiter({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: "Too many requests. Please try again later.",
+  onLimit: (req) => securityLog("instagram_rate_limited", req)
+});
+
+app.get(["/api/instagram-feed", "/.netlify/functions/instagram-feed"], instagramLimiter, handleInstagramRequest);
+
 const contactLimiter = createMemoryRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 5,
-  message: "Too many requests. Please try again later."
+  message: "Too many requests. Please try again later.",
+  onLimit: (req) => securityLog("contact_rate_limited", req)
 });
 
-app.post("/api/contact", contactLimiter, async (req, res, next) => {
+app.post("/api/contact", contactLimiter, requireProductionSameOrigin, async (req, res, next) => {
   try {
     assertMailEnv();
     await handleContactRequest(req, res, {
@@ -82,7 +94,7 @@ app.post("/api/contact", contactLimiter, async (req, res, next) => {
   }
 });
 
-app.post(["/pages/contact.html", "/pages/membership.html", "/contact", "/membership"], contactLimiter, async (req, res, next) => {
+app.post(["/pages/contact.html", "/pages/membership.html", "/contact", "/membership"], contactLimiter, requireProductionSameOrigin, async (req, res, next) => {
   try {
     assertMailEnv();
     const payload = {
@@ -150,16 +162,21 @@ export function handleServerError(error, req, res, next) {
   if (res.headersSent) return next(error);
   const missingMailConfiguration = isMissingMailConfiguration(error);
   const smtpAuthError = isSmtpAuthError(error);
-  if (!missingMailConfiguration && !smtpAuthError) console.error(error);
+  if (missingMailConfiguration || smtpAuthError) {
+    securityLog("server_mail_configuration_error", req, { code: error.code || "", responseCode: error.responseCode || "" });
+  } else {
+    console.error(error);
+  }
   const status = missingMailConfiguration || smtpAuthError ? 503 : 500;
+  const production = process.env.NODE_ENV === "production";
   return res.status(status).json({
     ok: false,
     errors: {
-      server: smtpAuthError
-        ? "SMTP login failed. Check SMTP_USER and SMTP_PASS; Gmail requires an App Password, not the normal Google account password."
-        : process.env.NODE_ENV === "production"
+      server: production
         ? "Server error. Please try again later."
-      : error.message
+        : smtpAuthError
+        ? "SMTP login failed. Check SMTP_USER and SMTP_PASS; Gmail requires an App Password, not the normal Google account password."
+        : error.message
     }
   });
 }
@@ -180,6 +197,26 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 export default app;
+
+export function requireProductionSameOrigin(req, res, next) {
+  if (process.env.NODE_ENV !== "production") return next();
+  if (sameOriginOrReferer(req)) return next();
+  securityLog("contact_origin_rejected", req);
+  return res.status(403).json({ ok: false, errors: { request: "Request verification failed." } });
+}
+
+export function assertProductionSecurityEnv(env = process.env) {
+  parseTrustProxy(env.TRUST_PROXY);
+  const errors = [];
+  if (env.EDITOR_MODE === "1" && env.EDITOR_LOCAL_ONLY !== "true") {
+    errors.push("EDITOR_LOCAL_ONLY=true is required when EDITOR_MODE=1");
+  }
+  const contactMailConfigured = Boolean(env.SMTP_HOST && env.CONTACT_TO);
+  if (contactMailConfigured && env.CONTACT_ALLOW_WITHOUT_CAPTCHA !== "1" && !env.HCAPTCHA_SECRET) {
+    errors.push("HCAPTCHA_SECRET is required for production contact forms unless CONTACT_ALLOW_WITHOUT_CAPTCHA=1 is set");
+  }
+  if (errors.length) throw new Error(`Invalid production security configuration: ${errors.join("; ")}`);
+}
 
 async function verifyHCaptcha(token, remoteIp) {
   if (!process.env.HCAPTCHA_SECRET) return true;

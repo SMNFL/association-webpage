@@ -14,7 +14,9 @@ const protectedPaths = [
   /^public\/assets\/docs\//,
   /^public\/assets\/images\//,
   /^public\/assets\/videos\//,
-  /^public\/assets\/icons\/(?!site-placeholder\.svg$)/
+  /^public\/assets\/icons\/(?!site-placeholder\.svg$)/,
+  /^public\/.*\.(?:map|bak|old)$/,
+  /^public\/.*~$/
 ];
 
 const allowedEnvironmentExample = ".env.example";
@@ -43,6 +45,32 @@ const textFiles = [...new Set([...tracked, ...candidates])]
 for (const file of textFiles) {
   const content = readFileSync(file, "utf8");
   if (/\/Users\/|C:\\Users\\/.test(content)) errors.push(`local absolute path in ${file}`);
+}
+
+const environmentExample = readFileSync(".env.example", "utf8");
+for (const required of ["EDITOR_LOCAL_ONLY", "TRUST_PROXY", "CONTACT_ALLOW_WITHOUT_CAPTCHA"]) {
+  if (!new RegExp(`^${required}=`, "m").test(environmentExample)) {
+    errors.push(`missing ${required} in .env.example`);
+  }
+}
+
+const staticHeaders = readFileSync("public/_headers", "utf8");
+for (const requiredHeader of [
+  "Content-Security-Policy:",
+  "Strict-Transport-Security:",
+  "X-Content-Type-Options:",
+  "X-Frame-Options:",
+  "Referrer-Policy:",
+  "Permissions-Policy:"
+]) {
+  if (!staticHeaders.includes(requiredHeader)) {
+    errors.push(`missing ${requiredHeader} in public/_headers`);
+  }
+}
+
+const netlifyFunction = readFileSync("netlify/functions/instagram-feed.js", "utf8");
+if (!/Strict-Transport-Security/.test(netlifyFunction) || !/X-Content-Type-Options/.test(netlifyFunction)) {
+  errors.push("netlify Instagram function must include security headers");
 }
 
 if (errors.length) {

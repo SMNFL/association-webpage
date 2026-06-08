@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { createEditorAuth, hashPassword, sameOrigin, verifyPassword } from "../../server/security/editor-auth.js";
+import { assertEditorSecurityEnv, createEditorAuth, hashPassword, sameOrigin, verifyPassword } from "../../server/security/editor-auth.js";
 import { sanitizeRichHtml, safeIframeUrl } from "../../server/security/content-safety.js";
-import { createMemoryRateLimiter } from "../../server/security/rate-limit.js";
+import { createMemoryRateLimiter, createProgressiveLoginGuard } from "../../server/security/rate-limit.js";
+import { parseTrustProxy } from "../../server/security/request-policy.js";
 import { requireLocalhost } from "../../server/editor/router.js";
 import { saveUploadedMedia } from "../../server/editor/content-store.js";
 import { isTrustedInstagramImageUrl } from "../../server/api/instagram.js";
@@ -18,6 +19,21 @@ test("editor password hashes verify without storing the plain password", () => {
   assert.equal(hash.includes(PASSWORD), false);
   assert.equal(verifyPassword(PASSWORD, hash), true);
   assert.equal(verifyPassword("wrong password", hash), false);
+});
+
+test("editor mode requires explicit local-only security configuration", () => {
+  assert.throws(
+    () => assertEditorSecurityEnv({
+      EDITOR_PASSWORD_HASH: "hash",
+      EDITOR_SESSION_SECRET: "secret"
+    }),
+    /EDITOR_LOCAL_ONLY=true/
+  );
+  assert.doesNotThrow(() => assertEditorSecurityEnv({
+    EDITOR_LOCAL_ONLY: "true",
+    EDITOR_PASSWORD_HASH: "hash",
+    EDITOR_SESSION_SECRET: "secret"
+  }));
 });
 
 test("editor sessions require a valid cookie and CSRF token for writes", () => {
@@ -80,8 +96,28 @@ test("editor rejects invalid CSRF tokens, origins and remote addresses", () => {
   assert.equal(sameOrigin(createRequest({ origin: "https://attacker.example" })), false);
 
   const res = createResponse();
-  requireLocalhost({ ip: "203.0.113.10" }, res, () => {
-    throw new Error("remote request should not continue");
+  withSilencedConsoleWarn(() => {
+    requireLocalhost({ ip: "203.0.113.10" }, res, () => {
+      throw new Error("remote request should not continue");
+    });
+  });
+  assert.equal(res.statusCode, 403);
+});
+
+test("editor local-only guard rejects forwarded proxy requests", () => {
+  const res = createResponse();
+  withSilencedConsoleWarn(() => {
+    requireLocalhost({
+      ip: "127.0.0.1",
+      method: "GET",
+      path: "/editor/",
+      headers: {},
+      get(name) {
+        return name.toLowerCase() === "x-forwarded-for" ? "203.0.113.10" : "";
+      }
+    }, res, () => {
+      throw new Error("forwarded editor request should not continue");
+    });
   });
   assert.equal(res.statusCode, 403);
 });
@@ -91,8 +127,10 @@ test("editor can allow Docker bridge addresses only when explicitly enabled", ()
   try {
     delete process.env.EDITOR_ALLOW_DOCKER_BRIDGE;
     const blocked = createResponse();
-    requireLocalhost({ ip: "::ffff:172.18.0.1" }, blocked, () => {
-      throw new Error("Docker bridge request should require an explicit flag");
+    withSilencedConsoleWarn(() => {
+      requireLocalhost({ ip: "::ffff:172.18.0.1" }, blocked, () => {
+        throw new Error("Docker bridge request should require an explicit flag");
+      });
     });
     assert.equal(blocked.statusCode, 403);
 
@@ -122,6 +160,43 @@ test("memory limiter blocks requests beyond its configured limit", () => {
     throw new Error("limited request should not continue");
   });
   assert.equal(blocked.statusCode, 429);
+});
+
+test("progressive login guard temporarily locks repeated failures", () => {
+  let now = 1_000;
+  const guard = createProgressiveLoginGuard({
+    threshold: 2,
+    baseLockMs: 1_000,
+    maxLockMs: 10_000,
+    now: () => now
+  });
+  const req = { ip: "127.0.0.1" };
+  guard.recordFailure(req);
+  guard.recordFailure(req);
+
+  const blocked = createResponse();
+  guard.middleware(req, blocked, () => {
+    throw new Error("locked request should not continue");
+  });
+  assert.equal(blocked.statusCode, 429);
+  assert.equal(blocked.headers["Retry-After"], "1");
+
+  now += 1_001;
+  let called = false;
+  guard.middleware(req, createResponse(), () => {
+    called = true;
+  });
+  assert.equal(called, true);
+
+  guard.recordSuccess(req);
+});
+
+test("trust proxy parser accepts documented values only", () => {
+  assert.equal(parseTrustProxy(""), false);
+  assert.equal(parseTrustProxy("false"), false);
+  assert.equal(parseTrustProxy("loopback"), "loopback");
+  assert.equal(parseTrustProxy("private"), "loopback, linklocal, uniquelocal");
+  assert.throws(() => parseTrustProxy("true"), /Invalid TRUST_PROXY/);
 });
 
 test("rich HTML sanitizer preserves approved embeds and removes executable markup", () => {
@@ -197,4 +272,14 @@ function createResponse() {
       return this;
     }
   };
+}
+
+function withSilencedConsoleWarn(callback) {
+  const previous = console.warn;
+  console.warn = () => {};
+  try {
+    return callback();
+  } finally {
+    console.warn = previous;
+  }
 }

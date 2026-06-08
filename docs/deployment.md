@@ -56,3 +56,24 @@ For Node self-hosting and local editor usage, run `npm install`. Packages remain
 ## Security
 
 Read [`SECURITY.md`](SECURITY.md) before deploying. If the host does not support Netlify-style `_headers`, configure equivalent CSP, MIME, frame, referrer and permissions headers in that host.
+
+For Node self-hosting, set these security-related variables explicitly:
+
+```env
+NODE_ENV=production
+TRUST_PROXY=loopback
+HCAPTCHA_SITE_KEY=your-public-site-key
+HCAPTCHA_SECRET=your-private-secret
+CONTACT_ALLOW_WITHOUT_CAPTCHA=0
+```
+
+Keep the editor out of the public deployment. If you start the separate editor service, set `EDITOR_LOCAL_ONLY=true` and access it through localhost, SSH tunnel, VPN, or another private admin network only.
+
+Before publishing:
+
+```bash
+npm run release:check
+curl -I https://simonswelt.de/
+```
+
+The HTTPS response should include CSP, HSTS, frame, MIME, referrer and permissions headers.

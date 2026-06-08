@@ -13,7 +13,15 @@ try {
   const passwordHash = hashPassword(password);
   const sessionSecret = randomBytes(48).toString("base64url");
   const current = await readFile(".env", "utf8").catch(() => "");
-  const next = setEnvValue(setEnvValue(current, "EDITOR_PASSWORD_HASH", passwordHash), "EDITOR_SESSION_SECRET", sessionSecret);
+  const next = setEnvValue(
+    setEnvValue(
+      setEnvValue(current, "EDITOR_LOCAL_ONLY", "true"),
+      "EDITOR_PASSWORD_HASH",
+      passwordHash
+    ),
+    "EDITOR_SESSION_SECRET",
+    sessionSecret
+  );
   await writeFile(".env", `${next.trim()}\n`, { mode: 0o600 });
   console.log("Editor security values were written to .env. The plain password was not stored.");
 } finally {

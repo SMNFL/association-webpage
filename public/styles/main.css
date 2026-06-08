@@ -29,6 +29,9 @@
   --header-height: 80px;
   --header-safe-gap: clamp(1.25rem, 5vw, 3rem);
   --mobile-menu-height: 0px;
+  --header-bg: rgba(38, 58, 48, 0.9);
+  --header-bg-scrolled: rgba(31, 49, 41, 0.96);
+  --header-menu-bg: rgba(31, 49, 41, 0.98);
 }
 
 @font-face {
@@ -226,13 +229,13 @@ code {
   width: 100vw;
   margin-left: -50vw;
   border-bottom: 1px solid var(--color-border);
-  background: rgba(5, 7, 18, 0.84);
+  background: var(--header-bg);
   backdrop-filter: blur(18px);
   transition: background var(--transition), border-color var(--transition), box-shadow var(--transition), backdrop-filter var(--transition);
 }
 
 .site-header--scrolled::before {
-  background: rgba(5, 7, 18, 0.94);
+  background: var(--header-bg-scrolled);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
 }
 
@@ -340,7 +343,7 @@ code {
   border: 1px solid var(--color-border);
   border-top: 0;
   border-radius: 0 0 var(--radius-md) var(--radius-md);
-  background: rgba(5, 7, 18, 0.98);
+  background: var(--header-menu-bg);
   box-shadow: var(--shadow-card);
   opacity: 0;
   pointer-events: none;

@@ -20,6 +20,7 @@ export function verifyPassword(password, storedHash = "") {
 
 export function assertEditorSecurityEnv(env = process.env) {
   const missing = ["EDITOR_PASSWORD_HASH", "EDITOR_SESSION_SECRET"].filter((key) => !env[key]);
+  if (env.EDITOR_LOCAL_ONLY !== "true") missing.push("EDITOR_LOCAL_ONLY=true");
   if (missing.length) {
     throw new Error(`Missing editor security configuration: ${missing.join(", ")}. Run npm run security:setup-editor.`);
   }
@@ -77,8 +78,10 @@ export function createEditorAuth(options = {}) {
   function login(req, res) {
     res.set("Cache-Control", "no-store");
     if (!sameOrigin(req) || !verifyPassword(req.body?.password, passwordHash)) {
+      options.onLoginFailure?.(req);
       return res.status(401).json({ ok: false, error: "Invalid administrator credentials." });
     }
+    options.onLoginSuccess?.(req);
     const id = randomBytes(32).toString("base64url");
     const current = {
       id,
