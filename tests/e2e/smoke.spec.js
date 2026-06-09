@@ -37,6 +37,8 @@ test("homepage loads and renders Instagram previews", async ({ page }) => {
   await expect(page.locator(".instagram-preview-card")).toHaveCount(4);
   await expect(page.locator("[data-instagram-username]")).toHaveText("@example");
   await expect(page.locator("[data-instagram-source]")).toHaveText("12 posts");
+  await expect(page.locator(".contact-card__email")).toHaveAttribute("href", "mailto:hello@example.org");
+  await expect(page.locator(".contact-card__button")).toHaveAttribute("href", "pages/contact.html?back=contact");
   await expect(page.locator(".contact-card__links a")).toHaveText(["@example"]);
   expect(instagramApiRequests).toHaveLength(1);
   expect(instagramApiRequests[0]).toContain("/api/instagram-feed?username=example&limit=4");
@@ -589,12 +591,11 @@ test("footer subpage links return to footer and explicit back targets still win"
   await expect(page.locator("[data-back-label]")).toHaveAttribute("href", "../index.html#contact");
 });
 
-test("forms expose autofill-friendly fields and hCaptcha appears by default", async ({ page }) => {
+test("forms expose autofill-friendly fields and no captcha appears by default", async ({ page }) => {
   await page.route("https://js.hcaptcha.com/**", (route) => route.fulfill({ status: 200, body: "" }));
 
   await page.goto("/pages/contact.html");
-  await expect(page.locator("[data-contact-captcha]")).toBeVisible();
-  await expect(page.locator("[data-contact-captcha] [data-hcaptcha]")).toHaveAttribute("data-sitekey", "10000000-ffff-ffff-ffff-000000000001");
+  await expect(page.locator("[data-contact-captcha]")).toBeHidden();
   await expect(page.locator("[data-contact-form]")).toHaveAttribute("autocomplete", "on");
   await expect(page.locator("#name")).toHaveAttribute("name", "name");
   await expect(page.locator("#name")).toHaveAttribute("autocomplete", "name");
@@ -606,7 +607,7 @@ test("forms expose autofill-friendly fields and hCaptcha appears by default", as
   await expect(page.locator("#message")).toHaveAttribute("autocomplete", "on");
 
   await page.goto("/pages/membership.html");
-  await expect(page.locator(".captcha-box [data-hcaptcha]")).toHaveAttribute("data-sitekey", "10000000-ffff-ffff-ffff-000000000001");
+  await expect(page.locator(".captcha-box")).toBeHidden();
   await expect(page.locator("[data-membership-form]")).toHaveAttribute("autocomplete", "on");
   await expect(page.locator('[name="given-name"]')).toHaveAttribute("autocomplete", "given-name");
   await expect(page.locator('[name="family-name"]')).toHaveAttribute("autocomplete", "family-name");
@@ -619,6 +620,43 @@ test("forms expose autofill-friendly fields and hCaptcha appears by default", as
   await expect(page.locator('[name="email"]')).toHaveAttribute("autocomplete", "email");
   await expect(page.locator('[name="iban"]')).toHaveAttribute("autocomplete", "on");
   await expect(page.locator('[name="bic"]')).toHaveAttribute("autocomplete", "on");
+});
+
+test("forms render configured hCaptcha and mCaptcha widgets", async ({ page }) => {
+  await page.route("https://js.hcaptcha.com/**", (route) => route.fulfill({ status: 200, body: "" }));
+  await page.route("https://captcha.example/assets/mcaptcha.js", (route) => route.fulfill({ status: 200, body: "" }));
+  await page.route("**/data/site.local.json", (route) => route.fulfill({
+    json: {
+      captcha: {
+        provider: "hcaptcha",
+        siteKey: "public-hcaptcha-key"
+      }
+    }
+  }));
+  await page.route("**/data/pages.local.json", (route) => route.fulfill({
+    json: {
+      membership: {
+        form: {
+          captcha: {
+            provider: "mcaptcha",
+            siteKey: "public-mcaptcha-key",
+            widgetUrl: "https://captcha.example/widget/site",
+            scriptUrl: "https://captcha.example/assets/mcaptcha.js"
+          }
+        }
+      }
+    }
+  }));
+
+  await page.goto("/pages/contact.html");
+  await expect(page.locator("[data-contact-captcha]")).toBeVisible();
+  await expect(page.locator("[data-contact-captcha] [data-hcaptcha]")).toHaveAttribute("data-sitekey", "public-hcaptcha-key");
+
+  await page.goto("/pages/membership.html");
+  await expect(page.locator(".captcha-box")).toBeVisible();
+  await expect(page.locator("#mcaptcha__token-label")).toHaveAttribute("data-mcaptcha_url", "https://captcha.example/widget/site");
+  await expect(page.locator('[name="mcaptcha__token"]')).toHaveAttribute("id", "mcaptcha__token");
+  await expect(page.locator("#mcaptcha__widget-container")).toHaveCount(1);
 });
 
 test("contact form uses English defaults and submits inline", async ({ page }) => {

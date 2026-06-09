@@ -1,3 +1,6 @@
+import helmet from "helmet";
+import { captchaCspSources } from "./captcha.js";
+
 const FRAME_SOURCES = [
   "'self'",
   "https://www.youtube.com",
@@ -35,17 +38,33 @@ export function securityHeaders(req, res, next) {
 
 function applyRouteHeaders(req, res, next) {
   const editorRoute = req.path.startsWith("/editor") || req.path.startsWith("/api/editor");
+  const captchaSources = captchaCspSources();
+  const scriptSources = uniqueSources([
+    "'self'",
+    "https://js.hcaptcha.com",
+    "https://www.instagram.com",
+    "https://tickets.clevertix.de",
+    "https://*.hcaptcha.com",
+    ...captchaSources.script
+  ]);
+  const frameSources = uniqueSources([...FRAME_SOURCES, ...captchaSources.frame]);
+  const connectSources = uniqueSources([
+    "'self'",
+    "https://hcaptcha.com",
+    "https://*.hcaptcha.com",
+    ...captchaSources.connect
+  ]);
   const directives = [
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
     "form-action 'self'",
     `frame-ancestors ${editorRoute ? "'none'" : "'self'"}`,
-    "script-src 'self' https://js.hcaptcha.com https://www.instagram.com https://tickets.clevertix.de https://*.hcaptcha.com",
+    `script-src ${scriptSources.join(" ")}`,
     "style-src 'self' 'unsafe-inline' https://tickets.clevertix.de",
     "img-src 'self' data: https:",
-    `frame-src ${FRAME_SOURCES.join(" ")}`,
-    "connect-src 'self' https://hcaptcha.com https://*.hcaptcha.com",
+    `frame-src ${frameSources.join(" ")}`,
+    `connect-src ${connectSources.join(" ")}`,
     "font-src 'self' data:"
   ];
   res.set("Content-Security-Policy", directives.join("; "));
@@ -60,4 +79,7 @@ function applyRouteHeaders(req, res, next) {
   }
   return next();
 }
-import helmet from "helmet";
+
+function uniqueSources(values = []) {
+  return [...new Set(values.filter(Boolean))];
+}

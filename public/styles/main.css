@@ -1055,6 +1055,10 @@ h2 {
   padding: 0;
 }
 
+.captcha-box[hidden] {
+  display: none;
+}
+
 .captcha-label {
   margin: 0;
   color: var(--color-text);
@@ -1874,6 +1878,16 @@ a.event-card:focus-visible {
   font-size: 1.1rem;
 }
 
+.contact-card__email {
+  color: inherit;
+  text-decoration: none;
+}
+
+.contact-card__email:hover,
+.contact-card__email:focus-visible {
+  color: var(--color-lime);
+}
+
 .contact-card__links {
   display: grid;
   gap: var(--space-3);
@@ -1903,6 +1917,7 @@ a.event-card:focus-visible {
   font-size: 0.82rem;
   font-style: normal;
   font-weight: 900;
+  text-decoration: none;
 }
 
 .map-card {

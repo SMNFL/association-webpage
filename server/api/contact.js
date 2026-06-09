@@ -56,9 +56,15 @@ export function normalizeContactPayload(payload = {}) {
       || payload.acceptPrivacy
     ),
     hcaptchaToken: stringValue(payload["h-captcha-response"] || payload.hcaptchaToken),
+    mcaptchaToken: stringValue(payload.mcaptcha__token || payload.mcaptchaToken),
     source: stringValue(payload.source || payload.form || payload._form),
     membership: normalizeMembershipDetails(payload),
     raw: normalizeRawPayload(payload)
+  };
+  normalized.captchaToken = normalized.hcaptchaToken || normalized.mcaptchaToken;
+  normalized.captchaTokens = {
+    hcaptcha: normalized.hcaptchaToken,
+    mcaptcha: normalized.mcaptchaToken
   };
 
   normalized.subject = normalizeSubject(normalized.subject);
@@ -138,9 +144,16 @@ export async function handleContactRequest(req, res, dependencies = {}) {
     return res.status(400).json({ ok: false, errors });
   }
 
-  if (process.env.HCAPTCHA_SECRET && dependencies.verifyCaptcha) {
-    const captchaOk = await dependencies.verifyCaptcha(contact.hcaptchaToken, req.ip);
-    if (!captchaOk) {
+  if (dependencies.captchaProvider?.name && dependencies.captchaProvider.name !== "none") {
+    const provider = dependencies.captchaProvider;
+    const token = contact.captchaTokens?.[provider.tokenField] || contact.captchaToken;
+    try {
+      const captchaOk = await provider.verify(token, { remoteIp: req.ip, req });
+      if (!captchaOk) {
+        return res.status(400).json({ ok: false, errors: { captcha: "Captcha could not be verified." } });
+      }
+    } catch (error) {
+      dependencies.onCaptchaError?.(error, req, provider);
       return res.status(400).json({ ok: false, errors: { captcha: "Captcha could not be verified." } });
     }
   }

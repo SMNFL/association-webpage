@@ -138,7 +138,9 @@
       "description": "Complete the form. The team will contact you after review.",
       "subject": "Membership application",
       "source": "/pages/membership.html",
-      "hcaptchaSiteKey": "10000000-ffff-ffff-ffff-000000000001",
+      "captcha": {
+        "provider": "none"
+      },
       "submitLabel": "Send application",
       "privacyNote": "Submitted data is used to process the application.",
       "thanksTitle": "Thank you",

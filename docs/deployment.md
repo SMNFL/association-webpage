@@ -2,7 +2,7 @@
 
 The public website supports two deployment modes:
 
-- Node self-hosting: run the server documented in `SELF_HOSTING.md` for contact mail, hCaptcha verification and live API routes.
+- Node self-hosting: run the server documented in `SELF_HOSTING.md` for contact mail, optional CAPTCHA verification, and live API routes.
 - Static hosting: deploy `public/`. `public/_headers` contains Netlify-compatible security headers, but static hosting needs Netlify Forms or another form backend for submissions.
 
 The authenticated editor is intentionally local-only and is never part of a static deployment.
@@ -62,10 +62,13 @@ For Node self-hosting, set these security-related variables explicitly:
 ```env
 NODE_ENV=production
 TRUST_PROXY=loopback
+CAPTCHA_PROVIDER=hcaptcha
 HCAPTCHA_SITE_KEY=your-public-site-key
 HCAPTCHA_SECRET=your-private-secret
 CONTACT_ALLOW_WITHOUT_CAPTCHA=0
 ```
+
+Leave `CAPTCHA_PROVIDER` empty to auto-select from provider-specific config. Use `CAPTCHA_PROVIDER=none` only when `CONTACT_ALLOW_WITHOUT_CAPTCHA=1` is intentionally set with equivalent upstream abuse protection. For self-hosted mCaptcha, set `CAPTCHA_PROVIDER=mcaptcha`, `MCAPTCHA_VERIFY_URL`, `MCAPTCHA_SITE_KEY`, `MCAPTCHA_SECRET`, and `MCAPTCHA_WIDGET_URL`.
 
 Keep the editor out of the public deployment. If you start the separate editor service, set `EDITOR_LOCAL_ONLY=true` and access it through localhost, SSH tunnel, VPN, or another private admin network only.
 

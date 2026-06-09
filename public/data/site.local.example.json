@@ -3,7 +3,6 @@
   "title": "Your Local Site Name | Culture Website",
   "description": "Short SEO description for your local website.",
   "email": "hello@example.org",
-  "hcaptchaSiteKey": "YOUR_HCAPTCHA_SITE_KEY",
   "address": {
     "name": "Your Place",
     "street": "Example Street 1",

@@ -113,6 +113,7 @@ SMTP_USER=mail-user
 SMTP_PASS=mail-password
 SMTP_FROM=website@example.org
 CONTACT_TO=contact@example.org
+CAPTCHA_PROVIDER=hcaptcha
 HCAPTCHA_SITE_KEY=public-site-key
 HCAPTCHA_SECRET=private-secret
 CONTACT_ALLOW_WITHOUT_CAPTCHA=0
@@ -136,7 +137,15 @@ Test SMTP access in isolation:
 npm run smtp:check
 ```
 
-Set the visible hCaptcha site key with `HCAPTCHA_SITE_KEY` on the Node server, or locally in `site.local.json` as `hcaptchaSiteKey` and for the membership form in `pages.local.json` as `membership.form.hcaptchaSiteKey`. Site keys are public browser configuration, but in a reusable template they still belong in the local deployment. In production, SMTP contact mail requires `HCAPTCHA_SECRET` unless `CONTACT_ALLOW_WITHOUT_CAPTCHA=1` is deliberately set with equivalent upstream abuse protection.
+CAPTCHA modes:
+
+- No CAPTCHA: leave CAPTCHA env vars empty. In production, this is allowed for SMTP contact mail only when `CONTACT_ALLOW_WITHOUT_CAPTCHA=1` is set deliberately and upstream abuse protection exists.
+- hCaptcha: set `CAPTCHA_PROVIDER=hcaptcha`, `HCAPTCHA_SITE_KEY`, and `HCAPTCHA_SECRET`.
+- mCaptcha: set `CAPTCHA_PROVIDER=mcaptcha`, `MCAPTCHA_VERIFY_URL`, `MCAPTCHA_SITE_KEY`, `MCAPTCHA_SECRET`, and `MCAPTCHA_WIDGET_URL`. `MCAPTCHA_SCRIPT_URL` is optional and defaults to the published vanilla glue script.
+
+For Node/Docker deployments, configure CAPTCHA only in `.env`; the server injects the public browser config into `site*.json` and `pages*.json` at request time. For static-only hosting, configure the browser-visible `captcha` object in ignored local JSON because there is no server env at runtime.
+
+For Docker, the website still starts with `docker compose up -d --build`. An optional mCaptcha profile is available for local experiments with `docker compose --profile mcaptcha up -d mcaptcha mcaptcha-db`; production mCaptcha should run behind TLS through a reverse proxy, or use the official upstream mCaptcha Compose deployment and point this site at it.
 
 ## Tests
 

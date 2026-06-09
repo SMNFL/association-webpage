@@ -25,6 +25,7 @@ Currently covered:
 - Contact form size limits and Instagram CDN allowlist
 - Theme normalization, CSS variables, and validation errors
 - Safe main-gallery references and element type labels
+- CAPTCHA provider selection and mocked hCaptcha/mCaptcha verification
 
 ## Browser Tests
 
@@ -42,7 +43,7 @@ Currently covered:
 - Instagram tries the live endpoint first and uses local JSON only as fallback
 - Bylaws table of contents stays visible while scrolling
 - Footer links on subpages return to `#footer`, while explicit `back` parameters take priority
-- hCaptcha is visible when a site key exists in local configuration
+- CAPTCHA is hidden by default, hCaptcha renders from local config, and mCaptcha renders its configured token field/container
 - Contact section shows handles maintained under `contactSection.socialLinks`
 - Archive cards link to local event pages
 - Event rendering falls back to generic defaults without a local event file

@@ -48,7 +48,18 @@ for (const file of textFiles) {
 }
 
 const environmentExample = readFileSync(".env.example", "utf8");
-for (const required of ["EDITOR_LOCAL_ONLY", "TRUST_PROXY", "CONTACT_ALLOW_WITHOUT_CAPTCHA"]) {
+for (const required of [
+  "EDITOR_LOCAL_ONLY",
+  "TRUST_PROXY",
+  "CONTACT_ALLOW_WITHOUT_CAPTCHA",
+  "CAPTCHA_PROVIDER",
+  "HCAPTCHA_SITE_KEY",
+  "HCAPTCHA_SECRET",
+  "MCAPTCHA_VERIFY_URL",
+  "MCAPTCHA_SITE_KEY",
+  "MCAPTCHA_SECRET",
+  "MCAPTCHA_WIDGET_URL"
+]) {
   if (!new RegExp(`^${required}=`, "m").test(environmentExample)) {
     errors.push(`missing ${required} in .env.example`);
   }

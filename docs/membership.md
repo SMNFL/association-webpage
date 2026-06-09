@@ -38,25 +38,41 @@ If the site is hosted somewhere else, connect the form to one of these:
 
 Do not store membership applications only in frontend JavaScript. The form includes personal and banking data, so processing must happen server-side.
 
-## hCaptcha
+## CAPTCHA
 
-The reusable repository ships with hCaptcha's public test site key so the visible widget appears in clean local/default setups. For the Node server on localhost or production, set both keys in `.env`:
+The membership form uses the same optional CAPTCHA provider as the contact form. With no provider config, no widget is shown. For Node/Docker deployments, set CAPTCHA only in `.env`; the server injects the public browser config into the membership JSON at request time.
+
+For hCaptcha on the Node server, set:
 
 ```env
+CAPTCHA_PROVIDER=hcaptcha
 HCAPTCHA_SITE_KEY=YOUR_HCAPTCHA_SITE_KEY
 HCAPTCHA_SECRET=YOUR_HCAPTCHA_SECRET
 ```
 
-For static hosting, replace the visible site key in ignored `public/data/pages.local.json`:
+For self-hosted mCaptcha, set:
+
+```env
+CAPTCHA_PROVIDER=mcaptcha
+MCAPTCHA_VERIFY_URL=https://captcha.example.org/api/v1/pow/siteverify
+MCAPTCHA_SITE_KEY=YOUR_MCAPTCHA_SITE_KEY
+MCAPTCHA_SECRET=YOUR_MCAPTCHA_SECRET
+MCAPTCHA_WIDGET_URL=https://captcha.example.org/widget/site
+```
+
+For static-only hosting, replace the visible site key in ignored `public/data/pages.local.json` because there is no server env at runtime:
 
 ```json
 {
   "membership": {
     "form": {
-      "hcaptchaSiteKey": "YOUR_HCAPTCHA_SITE_KEY"
+      "captcha": {
+        "provider": "hcaptcha",
+        "siteKey": "YOUR_HCAPTCHA_SITE_KEY"
+      }
     }
   }
 }
 ```
 
-The browser site key is public configuration; the secret must never be written to JSON or frontend JavaScript. The secret does not change the visible widget by itself.
+Browser site keys and widget URLs are public configuration; provider secrets must never be written to JSON or frontend JavaScript.

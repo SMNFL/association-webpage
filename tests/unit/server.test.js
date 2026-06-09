@@ -132,36 +132,126 @@ test("server error handler hides mail configuration details in production", () =
 });
 
 test("runtime public config injects hCaptcha site key into default JSON", () => {
-  const previous = process.env.HCAPTCHA_SITE_KEY;
-  process.env.HCAPTCHA_SITE_KEY = "real-public-site-key";
-
-  try {
+  withCaptchaEnv({
+    CAPTCHA_PROVIDER: "hcaptcha",
+    HCAPTCHA_SITE_KEY: "real-public-site-key",
+    HCAPTCHA_SECRET: "private-secret"
+  }, () => {
     assert.deepEqual(
-      applyRuntimePublicConfig({ hcaptchaSiteKey: "test-key" }, "/data/site.default.json"),
-      { hcaptchaSiteKey: "real-public-site-key" }
+      applyRuntimePublicConfig({
+        hcaptchaSiteKey: "stale-json-key",
+        captcha: { provider: "none" }
+      }, "/data/site.default.json"),
+      {
+        captcha: { provider: "hcaptcha", siteKey: "real-public-site-key" }
+      }
     );
     assert.deepEqual(
       applyRuntimePublicConfig({ hcaptchaSiteKey: "old-local-key" }, "/data/site.local.json"),
-      { hcaptchaSiteKey: "real-public-site-key" }
+      {
+        captcha: { provider: "hcaptcha", siteKey: "real-public-site-key" }
+      }
     );
     assert.deepEqual(
-      applyRuntimePublicConfig({ membership: { form: { hcaptchaSiteKey: "test-key" } } }, "/data/pages.default.json"),
-      { membership: { form: { hcaptchaSiteKey: "real-public-site-key" } } }
+      applyRuntimePublicConfig({
+        membership: {
+          form: {
+            hcaptchaSiteKey: "stale-json-key",
+            captcha: { provider: "none" }
+          }
+        }
+      }, "/data/pages.default.json"),
+      {
+        membership: {
+          form: {
+            captcha: { provider: "hcaptcha", siteKey: "real-public-site-key" }
+          }
+        }
+      }
     );
     assert.deepEqual(
       applyRuntimePublicConfig({ mitglied: { form: { hcaptchaSiteKey: "old-local-key" } } }, "/data/pages.local.json"),
       {
-        mitglied: { form: { hcaptchaSiteKey: "old-local-key" } },
-        membership: { form: { hcaptchaSiteKey: "real-public-site-key" } }
+        mitglied: { form: {} },
+        membership: {
+          form: {
+            captcha: { provider: "hcaptcha", siteKey: "real-public-site-key" }
+          }
+        }
       }
     );
-  } finally {
-    if (previous === undefined) {
-      delete process.env.HCAPTCHA_SITE_KEY;
-    } else {
-      process.env.HCAPTCHA_SITE_KEY = previous;
-    }
-  }
+  });
+});
+
+test("runtime public config drops stale hCaptcha key when captcha provider is none", () => {
+  withCaptchaEnv({ CAPTCHA_PROVIDER: "none" }, () => {
+    assert.deepEqual(
+      applyRuntimePublicConfig({
+        hcaptchaSiteKey: "stale-json-key",
+        captcha: { provider: "hcaptcha", siteKey: "stale-json-key" }
+      }, "/data/site.default.json"),
+      { captcha: { provider: "none" } }
+    );
+    assert.deepEqual(
+      applyRuntimePublicConfig({
+        membership: {
+          form: {
+            hcaptchaSiteKey: "stale-json-key",
+            captcha: { provider: "hcaptcha", siteKey: "stale-json-key" }
+          }
+        }
+      }, "/data/pages.default.json"),
+      {
+        membership: {
+          form: {
+            captcha: { provider: "none" }
+          }
+        }
+      }
+    );
+  });
+});
+
+test("runtime public config injects mCaptcha config from env into site and membership JSON", () => {
+  withCaptchaEnv({
+    CAPTCHA_PROVIDER: "mcaptcha",
+    MCAPTCHA_VERIFY_URL: "https://captcha.example.org/api/v1/pow/siteverify",
+    MCAPTCHA_SITE_KEY: "public-mcaptcha-key",
+    MCAPTCHA_SECRET: "private-mcaptcha-secret",
+    MCAPTCHA_WIDGET_URL: "https://captcha.example.org/widget/site",
+    MCAPTCHA_SCRIPT_URL: "https://captcha.example.org/assets/mcaptcha.js"
+  }, () => {
+    const expectedCaptcha = {
+      provider: "mcaptcha",
+      siteKey: "public-mcaptcha-key",
+      widgetUrl: "https://captcha.example.org/widget/site",
+      scriptUrl: "https://captcha.example.org/assets/mcaptcha.js"
+    };
+    assert.deepEqual(
+      applyRuntimePublicConfig({
+        hcaptchaSiteKey: "stale-json-key",
+        captcha: { provider: "hcaptcha", siteKey: "stale-json-key" }
+      }, "/data/site.local.json"),
+      { captcha: expectedCaptcha }
+    );
+    assert.deepEqual(
+      applyRuntimePublicConfig({
+        membership: {
+          form: {
+            hcaptchaSiteKey: "stale-json-key",
+            captcha: { provider: "hcaptcha", siteKey: "stale-json-key" }
+          }
+        }
+      }, "/data/pages.local.json"),
+      {
+        membership: {
+          form: {
+            captcha: expectedCaptcha
+          }
+        }
+      }
+    );
+  });
 });
 
 test("production contact posts require same-origin origin or referer", () => {
@@ -200,14 +290,15 @@ test("production security env requires captcha unless deliberately disabled", ()
       SMTP_HOST: "smtp.example.org",
       CONTACT_TO: "contact@example.org"
     }),
-    /HCAPTCHA_SECRET/
+    /CAPTCHA provider/
   );
   assert.doesNotThrow(() => assertProductionSecurityEnv({
     NODE_ENV: "production",
     TRUST_PROXY: "loopback",
     SMTP_HOST: "smtp.example.org",
     CONTACT_TO: "contact@example.org",
-    HCAPTCHA_SECRET: "secret"
+    HCAPTCHA_SECRET: "secret",
+    HCAPTCHA_SITE_KEY: "site-key"
   }));
 });
 
@@ -253,6 +344,35 @@ function createRequest(options = {}) {
       return headers[name] || headers[name.toLowerCase()] || "";
     }
   };
+}
+
+function withCaptchaEnv(values, callback) {
+  const keys = [
+    "CAPTCHA_PROVIDER",
+    "HCAPTCHA_SITE_KEY",
+    "HCAPTCHA_SECRET",
+    "MCAPTCHA_VERIFY_URL",
+    "MCAPTCHA_SITE_KEY",
+    "MCAPTCHA_SECRET",
+    "MCAPTCHA_WIDGET_URL",
+    "MCAPTCHA_SCRIPT_URL"
+  ];
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  try {
+    keys.forEach((key) => delete process.env[key]);
+    Object.entries(values).forEach(([key, value]) => {
+      process.env[key] = value;
+    });
+    return callback();
+  } finally {
+    keys.forEach((key) => {
+      if (previous[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = previous[key];
+      }
+    });
+  }
 }
 
 function withSilencedConsoleError(callback) {

@@ -33,7 +33,9 @@
     }
   },
   "email": "hello@example.org",
-  "hcaptchaSiteKey": "10000000-ffff-ffff-ffff-000000000001",
+  "captcha": {
+    "provider": "none"
+  },
   "nav": [
     {
       "label": "About",

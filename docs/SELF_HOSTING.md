@@ -98,6 +98,16 @@ ssh -L 8081:127.0.0.1:8081 user@server
 
 Then open `http://127.0.0.1:8081/editor/` locally.
 
+### Optional Docker mCaptcha
+
+The website does not require mCaptcha. To experiment with a local self-hosted mCaptcha instance, start the optional profile:
+
+```bash
+docker compose --profile mcaptcha up -d mcaptcha-db mcaptcha
+```
+
+The profile adds `mcaptcha/mcaptcha:latest` plus Postgres and binds the service to `127.0.0.1:${MCAPTCHA_PORT:-7000}`. mCaptcha itself needs its own site configuration, account setup, and HTTPS reverse proxy for production. The upstream mCaptcha docs also support running their official Docker Compose deployment separately; in that case, point this website at it with `MCAPTCHA_VERIFY_URL` and `MCAPTCHA_WIDGET_URL`.
+
 The editor service bind-mounts `./public` into the container, so saved content is written back to your local working copy. Use the normal website service for public deployment.
 
 ## Optional Local Nginx On macOS
@@ -274,7 +284,7 @@ Netlify:      https://your-project.netlify.app/
 Render:       https://your-project.onrender.com/
 ```
 
-These platforms usually provide HTTPS automatically. For purely static hosting, server-side features such as SMTP, hCaptcha verification, and the Node Instagram endpoint need a matching server or function service.
+These platforms usually provide HTTPS automatically. For purely static hosting, server-side features such as SMTP, CAPTCHA verification, and the Node Instagram endpoint need a matching server or function service.
 
 Temporary public tests from your local machine:
 
@@ -344,33 +354,54 @@ Test SMTP access in isolation:
 npm run smtp:check
 ```
 
-## hCaptcha
+## CAPTCHA
 
-The reusable template uses hCaptcha's public test site key so the visible widget appears in clean local/default setups. Set your own site key for production.
-
-When the Node website runs through `npm run start` or `npm run dev`, the public site key can come directly from the server environment:
+No CAPTCHA is shown or verified when no provider config exists. In production, if SMTP contact mail is configured, no-CAPTCHA mode is allowed only when you deliberately set:
 
 ```env
-HCAPTCHA_SITE_KEY=your-public-site-key
-HCAPTCHA_SECRET=your-private-secret
-```
-
-When `HCAPTCHA_SECRET` is set, the server verifies incoming captcha tokens. Without this variable, captcha verification stays disabled.
-
-In production, if SMTP contact mail is configured, `HCAPTCHA_SECRET` is required unless you deliberately set:
-
-```env
+CAPTCHA_PROVIDER=none
 CONTACT_ALLOW_WITHOUT_CAPTCHA=1
 ```
 
 Use that opt-out only when another layer, such as a CDN/WAF rule or host-level abuse protection, provides equivalent form protection.
 
-Alternatively, set the visible site key locally in JSON:
+hCaptcha mode:
 
-- Contact form: `hcaptchaSiteKey` in `public/data/site.local.json`
-- Membership form: `membership.form.hcaptchaSiteKey` in `public/data/pages.local.json`
+```env
+CAPTCHA_PROVIDER=hcaptcha
+HCAPTCHA_SITE_KEY=your-public-site-key
+HCAPTCHA_SECRET=your-private-secret
+```
 
-The site key is browser configuration. The secret key stays only in the server environment. The secret key cannot replace the site key.
+mCaptcha mode:
+
+```env
+CAPTCHA_PROVIDER=mcaptcha
+MCAPTCHA_VERIFY_URL=https://captcha.example.org/api/v1/pow/siteverify
+MCAPTCHA_SITE_KEY=your-public-site-key
+MCAPTCHA_SECRET=your-private-secret
+MCAPTCHA_WIDGET_URL=https://captcha.example.org/widget/site
+MCAPTCHA_SCRIPT_URL=
+```
+
+If `CAPTCHA_PROVIDER` is unset, the server auto-selects `none`, `hcaptcha`, or `mcaptcha` only when the config is unambiguous. If both hCaptcha and mCaptcha secrets are present, set the provider explicitly.
+
+For Node/Docker deployments, keep CAPTCHA configuration only in `.env`. The server injects the public browser config into `site*.json` and `pages*.json` at request time, so you do not need CAPTCHA entries in local JSON.
+
+For static-only hosting, there is no server env at runtime. In that case, set browser-visible config in ignored JSON:
+
+- Contact form: `captcha` in `public/data/site.local.json`
+- Membership form: `membership.form.captcha` in `public/data/pages.local.json`
+
+Site keys and widget URLs are browser configuration. Provider secrets stay only in the server environment. Secrets must never be written to JSON or frontend JavaScript.
+
+Troubleshooting:
+
+- Ambiguous config: if both `HCAPTCHA_SECRET` and any `MCAPTCHA_*` provider config are set, also set `CAPTCHA_PROVIDER=hcaptcha` or `CAPTCHA_PROVIDER=mcaptcha`.
+- Missing token: when a provider is active, the browser must submit `h-captcha-response` for hCaptcha or `mcaptcha__token` for mCaptcha. Do not rely on client-side widget state alone.
+- Bad verify URL: `MCAPTCHA_VERIFY_URL` must be the full self-hosted siteverify endpoint, usually ending in `/api/v1/pow/siteverify`.
+- Widget blocked by CSP: for static hosting with mCaptcha, add the mCaptcha script origin to `script-src`, the widget origin to `frame-src`, and the widget/verify origins to `connect-src`.
+- Production no-CAPTCHA failure: set `CONTACT_ALLOW_WITHOUT_CAPTCHA=1` only if you intentionally run without provider verification and have equivalent upstream protection.
 
 ## Instagram
 

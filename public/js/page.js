@@ -1,5 +1,6 @@
 import { loadMergedJson } from "./data.js";
 import { initAnimations } from "./animations.js";
+import { configureCaptcha, captchaTokenValue, resetCaptcha, resolveCaptchaConfig } from "./captcha.js";
 import { escapeHtml, safeAsset, safeHref, sanitizeRichHtml } from "./security.js";
 import { applyTheme } from "./theme.js";
 
@@ -368,13 +369,11 @@ function renderMembership(page, site = {}) {
   }
 
   const membershipForm = document.querySelector("[data-membership-form]");
-  const captcha = document.querySelector("[data-hcaptcha]");
   const captchaError = document.querySelector("[data-captcha-error]");
-  const captchaEnabled = configureCaptcha(form.hcaptchaSiteKey || site.hcaptchaSiteKey);
+  const captchaState = configureCaptcha(document, resolveCaptchaConfig(site, form));
   initMembershipSubmit(membershipForm, {
-    captcha,
     captchaError,
-    captchaEnabled,
+    captchaState,
     successMessage: form.thanksText || "Message was sent.",
     errorMessage: form.errorMessage || "Message could not be sent.",
     invalidMessage: form.invalidMessage || "Please check the marked fields.",
@@ -399,9 +398,9 @@ function initMembershipSubmit(form, options = {}) {
       return;
     }
 
-    if (options.captchaEnabled && !validateMembershipCaptcha(options.captcha, options.captchaError)) {
+    if (options.captchaState?.enabled && !validateMembershipCaptcha(options.captchaState, options.captchaError)) {
       renderMembershipStatus(form, options.captchaMessage, "error");
-      options.captcha?.scrollIntoView({ behavior: "smooth", block: "center" });
+      options.captchaState.element?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
@@ -425,7 +424,7 @@ function initMembershipSubmit(form, options = {}) {
       }
 
       form.reset();
-      if (window.hcaptcha) window.hcaptcha.reset();
+      resetCaptcha(options.captchaState?.provider);
       renderMembershipStatus(form, options.successMessage, "success");
     } catch (error) {
       renderMembershipStatus(form, options.unreachableMessage, "error");
@@ -435,8 +434,8 @@ function initMembershipSubmit(form, options = {}) {
   });
 }
 
-function validateMembershipCaptcha(captcha, captchaError) {
-  const response = document.querySelector('[name="h-captcha-response"]')?.value || "";
+function validateMembershipCaptcha(captchaState, captchaError) {
+  const response = captchaTokenValue(captchaState?.provider);
   const valid = Boolean(response.trim());
   if (captchaError) captchaError.hidden = valid;
   return valid;
@@ -473,25 +472,6 @@ function renderMembershipStatus(form, message, type) {
   status.setAttribute("role", type === "error" ? "alert" : "status");
   status.classList.toggle("form-status--error", type === "error");
   status.classList.toggle("form-status--success", type === "success");
-}
-
-function configureCaptcha(siteKey = "") {
-  const captcha = document.querySelector("[data-hcaptcha]");
-  const box = captcha?.closest(".captcha-box");
-  const normalized = String(siteKey || "").trim();
-  if (!captcha || !box) return false;
-  box.hidden = !normalized;
-  if (!normalized) return false;
-  captcha.dataset.sitekey = normalized;
-  if (!document.querySelector("script[data-hcaptcha-script]")) {
-    const script = document.createElement("script");
-    script.src = "https://js.hcaptcha.com/1/api.js?hl=en";
-    script.async = true;
-    script.defer = true;
-    script.dataset.hcaptchaScript = "";
-    document.head.append(script);
-  }
-  return true;
 }
 
 async function boot() {

@@ -24,8 +24,7 @@
     },
     "form": {
       "subject": "Membership application",
-      "source": "/pages/membership.html",
-      "hcaptchaSiteKey": "YOUR_HCAPTCHA_SITE_KEY"
+      "source": "/pages/membership.html"
     }
   }
 }

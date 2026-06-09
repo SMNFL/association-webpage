@@ -173,13 +173,14 @@ function renderContact(config) {
       `<a href="${escapeHtml(safeHref(link.url) || "#")}" target="_blank" rel="noreferrer"><strong>${escapeHtml(link.label)}</strong></a>`
     )).join("");
 
-    const contactHref = safeHref(contact.contactButtonHref || config.links?.contact || `mailto:${config.email}`, { mailto: true }) || "#";
+    const emailHref = safeHref(`mailto:${config.email || ""}`, { mailto: true }) || "#";
+    const contactHref = safeHref(contact.contactButtonHref || config.links?.contact || "pages/contact.html?back=contact") || "#";
     cards.innerHTML = `
-      <a class="contact-card" href="${contactHref}" data-reveal>
+      <article class="contact-card" data-reveal>
         <span>${escapeHtml(contact.emailLabel || "Email")}</span>
-        <strong data-site-email>${escapeHtml(config.email || "")}</strong>
-        <em class="contact-card__button">${escapeHtml(contact.contactButtonLabel || "Contact form")}</em>
-      </a>
+        <a class="contact-card__email" href="${escapeHtml(emailHref)}"><strong data-site-email>${escapeHtml(config.email || "")}</strong></a>
+        <a class="contact-card__button" href="${escapeHtml(contactHref)}">${escapeHtml(contact.contactButtonLabel || "Contact form")}</a>
+      </article>
       <div class="contact-card" data-reveal>
         <span>${escapeHtml(contact.instagramLabel || "Instagram")}</span>
         <div class="contact-card__links">${socialLinks}</div>

@@ -12,6 +12,7 @@ import { securityHeaders } from "./security/headers.js";
 import { createMemoryRateLimiter } from "./security/rate-limit.js";
 import { securityLog } from "./security/logging.js";
 import { configureTrustProxy, parseTrustProxy, sameOriginOrReferer } from "./security/request-policy.js";
+import { createCaptchaProvider } from "./security/captcha.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -19,6 +20,9 @@ const publicDir = path.join(rootDir, "public");
 const app = express();
 const port = Number(process.env.PORT || 8080);
 const editorMode = process.env.EDITOR_MODE === "1";
+const captchaProvider = process.env.NODE_ENV === "test"
+  ? createCaptchaProvider({ CAPTCHA_PROVIDER: "none" })
+  : createCaptchaProvider(process.env);
 configureTrustProxy(app);
 if (editorMode) assertEditorSecurityEnv();
 if (process.env.NODE_ENV === "production") assertProductionSecurityEnv();
@@ -87,7 +91,8 @@ app.post("/api/contact", contactLimiter, requireProductionSameOrigin, async (req
         to: process.env.CONTACT_TO,
         from: process.env.SMTP_FROM || process.env.SMTP_USER
       },
-      verifyCaptcha: verifyHCaptcha
+      captchaProvider,
+      onCaptchaError: logCaptchaError
     });
   } catch (error) {
     next(error);
@@ -131,7 +136,8 @@ app.post(["/pages/contact.html", "/pages/membership.html", "/contact", "/members
         to: process.env.CONTACT_TO,
         from: process.env.SMTP_FROM || process.env.SMTP_USER
       },
-      verifyCaptcha: verifyHCaptcha
+      captchaProvider,
+      onCaptchaError: logCaptchaError
     });
   } catch (error) {
     next(error);
@@ -207,42 +213,22 @@ export function requireProductionSameOrigin(req, res, next) {
 
 export function assertProductionSecurityEnv(env = process.env) {
   parseTrustProxy(env.TRUST_PROXY);
+  const provider = createCaptchaProvider(env);
   const errors = [];
   if (env.EDITOR_MODE === "1" && env.EDITOR_LOCAL_ONLY !== "true") {
     errors.push("EDITOR_LOCAL_ONLY=true is required when EDITOR_MODE=1");
   }
   const contactMailConfigured = Boolean(env.SMTP_HOST && env.CONTACT_TO);
-  if (contactMailConfigured && env.CONTACT_ALLOW_WITHOUT_CAPTCHA !== "1" && !env.HCAPTCHA_SECRET) {
-    errors.push("HCAPTCHA_SECRET is required for production contact forms unless CONTACT_ALLOW_WITHOUT_CAPTCHA=1 is set");
+  if (contactMailConfigured && env.CONTACT_ALLOW_WITHOUT_CAPTCHA !== "1" && provider.name === "none") {
+    errors.push("CAPTCHA provider is required for production contact forms unless CONTACT_ALLOW_WITHOUT_CAPTCHA=1 is set");
+  }
+  if (contactMailConfigured && provider.name === "hcaptcha" && !String(env.HCAPTCHA_SITE_KEY || "").trim()) {
+    errors.push("HCAPTCHA_SITE_KEY is required when hCaptcha protects production contact forms");
+  }
+  if (contactMailConfigured && provider.name === "mcaptcha" && !String(env.MCAPTCHA_SITE_KEY || "").trim()) {
+    errors.push("MCAPTCHA_SITE_KEY is required when mCaptcha protects production contact forms");
   }
   if (errors.length) throw new Error(`Invalid production security configuration: ${errors.join("; ")}`);
-}
-
-async function verifyHCaptcha(token, remoteIp) {
-  if (!process.env.HCAPTCHA_SECRET) return true;
-  if (!token) return false;
-
-  const body = new URLSearchParams({
-    secret: process.env.HCAPTCHA_SECRET,
-    response: token
-  });
-  if (remoteIp) body.set("remoteip", remoteIp);
-
-  const response = await fetchWithTimeout("https://hcaptcha.com/siteverify", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body
-  }, 8000);
-
-  if (!response.ok) return false;
-  const result = await response.json();
-  return Boolean(result.success);
-}
-
-function fetchWithTimeout(url, options, timeoutMs) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeout));
 }
 
 function inferSubjectFromPath(pathname) {
@@ -250,32 +236,59 @@ function inferSubjectFromPath(pathname) {
 }
 
 export function applyRuntimePublicConfig(data, pathname) {
-  const hcaptchaSiteKey = String(process.env.HCAPTCHA_SITE_KEY || "").trim();
-  if (!hcaptchaSiteKey) return data;
+  const publicCaptcha = createCaptchaProvider(process.env).publicConfig;
 
   if (pathname.endsWith("/site.default.json") || pathname.endsWith("/site.local.json")) {
     return {
-      ...data,
-      hcaptchaSiteKey
+      ...withoutCaptchaConfig(data),
+      captcha: publicCaptcha
     };
   }
 
   if (pathname.endsWith("/pages.default.json") || pathname.endsWith("/pages.local.json")) {
+    const membership = stripPageCaptchaConfig({
+      ...data.membership,
+      ...data.mitglied,
+      form: {
+        ...data.membership?.form,
+        ...data.mitglied?.form
+      }
+    });
     return {
       ...data,
       membership: {
-        ...data.membership,
-        ...data.mitglied,
+        ...membership,
         form: {
-          ...data.membership?.form,
-          ...data.mitglied?.form,
-          hcaptchaSiteKey
+          ...membership.form,
+          captcha: publicCaptcha
         }
-      }
+      },
+      ...(data.mitglied ? { mitglied: stripPageCaptchaConfig(data.mitglied) } : {})
     };
   }
 
   return data;
+}
+
+function withoutCaptchaConfig(value = {}) {
+  const { hcaptchaSiteKey, captcha, ...rest } = value || {};
+  return rest;
+}
+
+function stripPageCaptchaConfig(page = {}) {
+  const { form, ...rest } = page || {};
+  if (form === undefined) return rest;
+  return {
+    ...rest,
+    form: withoutCaptchaConfig(form)
+  };
+}
+
+function logCaptchaError(error, req, provider) {
+  securityLog("captcha_verification_error", req, {
+    provider: provider?.name || error.provider || "",
+    status: String(error.status || "")
+  });
 }
 
 function enhanceFormPage(html) {

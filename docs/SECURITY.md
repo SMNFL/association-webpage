@@ -48,7 +48,7 @@ npm run security:setup-editor
 
 Then restart the running editor process. Existing sessions become invalid.
 
-Rotate external secrets at their provider too if they were exposed: SMTP password, hCaptcha secret, hosting tokens, or DNS/API tokens. After rotation, update `.env`, restart the service, and verify contact forms still work.
+Rotate external secrets at their provider too if they were exposed: SMTP password, CAPTCHA provider secret, hosting tokens, or DNS/API tokens. After rotation, update `.env`, restart the service, and verify contact forms still work.
 
 ## Website Protection Layers
 
@@ -66,7 +66,7 @@ Rotate external secrets at their provider too if they were exposed: SMTP passwor
 
 ## Production
 
-Run the public Node website with `npm run start` behind HTTPS. A reverse proxy must terminate TLS and preserve the standard headers. SMTP secrets and `HCAPTCHA_SECRET` belong only in the server environment.
+Run the public Node website with `npm run start` behind HTTPS. A reverse proxy must terminate TLS and preserve the standard headers. SMTP, hCaptcha, and mCaptcha secrets belong only in the server environment.
 
 Important environment variables:
 
@@ -81,6 +81,7 @@ SMTP_USER=mail-user
 SMTP_PASS=mail-password
 SMTP_FROM=website@example.org
 CONTACT_TO=contact@example.org
+CAPTCHA_PROVIDER=hcaptcha
 HCAPTCHA_SITE_KEY=public-site-key
 HCAPTCHA_SECRET=private-secret
 CONTACT_ALLOW_WITHOUT_CAPTCHA=0
@@ -88,7 +89,16 @@ CONTACT_ALLOW_WITHOUT_CAPTCHA=0
 
 Use `TRUST_PROXY=loopback` when a local reverse proxy such as Caddy or Nginx forwards to the Node process on the same host. Use `TRUST_PROXY=private` only when requests come through a trusted private proxy network. Do not use broad `true` proxy trust.
 
-In production, contact mail configured through `SMTP_HOST` and `CONTACT_TO` requires `HCAPTCHA_SECRET` unless `CONTACT_ALLOW_WITHOUT_CAPTCHA=1` is deliberately set. That opt-out is intended only for deployments with equivalent upstream abuse protection.
+In production, contact mail configured through `SMTP_HOST` and `CONTACT_TO` requires a selected CAPTCHA provider unless `CONTACT_ALLOW_WITHOUT_CAPTCHA=1` is deliberately set. That opt-out is intended only for deployments with equivalent upstream abuse protection.
+
+CAPTCHA provider selection:
+
+- `CAPTCHA_PROVIDER=none`: no server-side CAPTCHA verification. Use this with production mail only when upstream rate limits, WAF, or another abuse control exists.
+- `CAPTCHA_PROVIDER=hcaptcha`: requires `HCAPTCHA_SITE_KEY` and `HCAPTCHA_SECRET`.
+- `CAPTCHA_PROVIDER=mcaptcha`: requires `MCAPTCHA_VERIFY_URL`, `MCAPTCHA_SITE_KEY`, `MCAPTCHA_SECRET`, and `MCAPTCHA_WIDGET_URL`. `MCAPTCHA_SCRIPT_URL` is optional.
+- If `CAPTCHA_PROVIDER` is unset, the server auto-selects none, hCaptcha, or mCaptcha only when the config is unambiguous.
+
+For Node/Docker deployments, CAPTCHA env vars are the source of truth. The server injects public CAPTCHA config into served JSON responses; do not duplicate CAPTCHA config in local JSON. Static-only hosting can use the browser-visible `captcha` object in ignored local JSON because there is no server env at runtime.
 
 The editor does not belong on a public server. Remote administration needs a separate design with HTTPS, persistent storage, proxy configuration, and additional access control.
 
@@ -124,7 +134,8 @@ Update dependencies regularly and review security advisories. If a secret leaks,
 - Local filesystem or user-account access is outside the website boundary.
 - Third-party embeds load code or content from their providers.
 - Static hosts must actually apply `public/_headers` or configure equivalent headers.
-- hCaptcha protection is active only when `HCAPTCHA_SECRET` is set server-side and the matching visible site key is delivered to the browser through `HCAPTCHA_SITE_KEY` or local JSON configuration.
+- CAPTCHA protection is active only when the selected provider has its server-side secret configured and the matching public widget config is delivered to the browser.
+- Static hosts using mCaptcha must add the mCaptcha script origin to `script-src`, the widget origin to `frame-src`, and the verify/widget origins to `connect-src` in their `_headers` or equivalent host configuration.
 
 ## HTTPS And Header Verification
 
@@ -148,9 +159,9 @@ Also confirm HTTP redirects to HTTPS at the reverse proxy or hosting provider.
 ## Public Release Checklist
 
 - Rotate editor password/session secret with `npm run security:setup-editor`.
-- Rotate any SMTP or hCaptcha secret that may have been shared outside the host.
+- Rotate any SMTP, hCaptcha, mCaptcha, or editor secret that may have been shared outside the host.
 - Keep `.env`, `.editor-backups/`, local JSON overrides, generated pages and private media out of Git and public static hosting.
-- Set `NODE_ENV=production`, `TRUST_PROXY`, SMTP variables, `HCAPTCHA_SITE_KEY`, and `HCAPTCHA_SECRET`.
+- Set `NODE_ENV=production`, `TRUST_PROXY`, SMTP variables, and one CAPTCHA mode (`none`, `hcaptcha`, or `mcaptcha`).
 - Keep `EDITOR_MODE` off for the public website. If the editor is started separately, set `EDITOR_LOCAL_ONLY=true`.
 - Do not proxy `/editor` or `/api/editor` from the public domain.
 - Run `npm run release:check`, then inspect `git status --short --ignored`.

@@ -66,6 +66,20 @@ test("contact mail redacts sensitive raw fields", () => {
   assert.doesNotMatch(mail.text, /secret-token/);
 });
 
+test("contact payload extracts hCaptcha and mCaptcha token fields", () => {
+  const contact = normalizeContactPayload({
+    "h-captcha-response": "h-token",
+    mcaptcha__token: "m-token"
+  });
+
+  assert.equal(contact.hcaptchaToken, "h-token");
+  assert.equal(contact.mcaptchaToken, "m-token");
+  assert.deepEqual(contact.captchaTokens, {
+    hcaptcha: "h-token",
+    mcaptcha: "m-token"
+  });
+});
+
 test("membership mail includes application details", () => {
   const contact = normalizeContactPayload({
     subject: "Membership application",
@@ -140,6 +154,96 @@ test("contact handler uses mocked SMTP transport", async () => {
   assert.equal(sent[0].replyTo, "test@example.org");
 });
 
+test("contact handler skips captcha verification for none provider", async () => {
+  const sent = [];
+  const req = createContactRequest();
+  const res = createJsonResponse();
+
+  await handleContactRequest(req, res, {
+    captchaProvider: {
+      name: "none",
+      async verify() {
+        throw new Error("none provider should not verify");
+      }
+    },
+    transport: createTransport(sent),
+    mailOptions: createMailOptions()
+  });
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(sent.length, 1);
+});
+
+test("contact handler verifies selected hCaptcha token", async () => {
+  const sent = [];
+  const seenTokens = [];
+  const req = createContactRequest({ "h-captcha-response": "h-token" });
+  const res = createJsonResponse();
+
+  await handleContactRequest(req, res, {
+    captchaProvider: {
+      name: "hcaptcha",
+      tokenField: "hcaptcha",
+      async verify(token) {
+        seenTokens.push(token);
+        return token === "h-token";
+      }
+    },
+    transport: createTransport(sent),
+    mailOptions: createMailOptions()
+  });
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(seenTokens, ["h-token"]);
+  assert.equal(sent.length, 1);
+});
+
+test("contact handler verifies selected mCaptcha token", async () => {
+  const sent = [];
+  const seenTokens = [];
+  const req = createContactRequest({ mcaptcha__token: "m-token" });
+  const res = createJsonResponse();
+
+  await handleContactRequest(req, res, {
+    captchaProvider: {
+      name: "mcaptcha",
+      tokenField: "mcaptcha",
+      async verify(token) {
+        seenTokens.push(token);
+        return token === "m-token";
+      }
+    },
+    transport: createTransport(sent),
+    mailOptions: createMailOptions()
+  });
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(seenTokens, ["m-token"]);
+  assert.equal(sent.length, 1);
+});
+
+test("contact handler rejects missing captcha token for active provider", async () => {
+  const sent = [];
+  const res = createJsonResponse();
+
+  await handleContactRequest(createContactRequest(), res, {
+    captchaProvider: {
+      name: "mcaptcha",
+      tokenField: "mcaptcha",
+      async verify(token) {
+        assert.equal(token, "");
+        return false;
+      }
+    },
+    transport: createTransport(sent),
+    mailOptions: createMailOptions()
+  });
+
+  assert.equal(res.statusCode, 400);
+  assert.deepEqual(res.body, { ok: false, errors: { captcha: "Captcha could not be verified." } });
+  assert.equal(sent.length, 0);
+});
+
 test("contact validation rejects oversized messages and excessive unknown fields", () => {
   const tooLong = validateContactPayload({
     name: "Test",
@@ -168,5 +272,35 @@ function createJsonResponse() {
       this.body = body;
       return this;
     }
+  };
+}
+
+function createContactRequest(extraBody = {}) {
+  return {
+    body: {
+      name: "Test User",
+      email: "test@example.org",
+      subject: "Booking",
+      message: "Bitte melden.",
+      privacy: "on",
+      ...extraBody
+    },
+    ip: "127.0.0.1"
+  };
+}
+
+function createTransport(sent) {
+  return {
+    async sendMail(mail) {
+      sent.push(mail);
+      return { messageId: "mock" };
+    }
+  };
+}
+
+function createMailOptions() {
+  return {
+    to: "host@example.org",
+    from: "site@example.org"
   };
 }

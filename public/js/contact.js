@@ -1,4 +1,5 @@
 import { initAnimations } from "./animations.js";
+import { configureCaptcha, resolveCaptchaConfig } from "./captcha.js";
 import { loadMergedJson } from "./data.js";
 import { safeAsset, safeHref, sanitizeRichHtml } from "./security.js";
 import { applyTheme } from "./theme.js";
@@ -49,7 +50,7 @@ function applySiteContent(site = {}) {
     link.textContent = email;
     link.href = safeHref(`mailto:${email}`, { mailto: true }) || "#";
   });
-  configureCaptcha(site.hcaptchaSiteKey);
+  configureCaptcha(document, resolveCaptchaConfig(site));
   applyContactFormCopy(formCopy);
 }
 
@@ -81,24 +82,6 @@ function applyContactFormCopy(formCopy = {}) {
     const value = formCopy.validation?.[key];
     if (error && value) error.textContent = value;
   });
-}
-
-function configureCaptcha(siteKey = "") {
-  const box = document.querySelector("[data-contact-captcha]");
-  const captcha = box?.querySelector("[data-hcaptcha]");
-  const normalized = String(siteKey || "").trim();
-  if (!box || !captcha) return;
-  box.hidden = !normalized;
-  if (!normalized) return;
-  captcha.dataset.sitekey = normalized;
-  if (!document.querySelector("script[data-hcaptcha-script]")) {
-    const script = document.createElement("script");
-    script.src = "https://js.hcaptcha.com/1/api.js?hl=en";
-    script.async = true;
-    script.defer = true;
-    script.dataset.hcaptchaScript = "";
-    document.head.append(script);
-  }
 }
 
 function setError(input, message = "") {

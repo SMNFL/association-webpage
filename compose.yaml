@@ -26,3 +26,31 @@ services:
       - ./ui-web-edit-tool:/app/ui-web-edit-tool:ro
       - ./.editor-backups:/app/.editor-backups
     command: ["node", "server/index.js"]
+
+  mcaptcha-db:
+    profiles:
+      - mcaptcha
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${MCAPTCHA_DB_NAME:-mcaptcha}
+      POSTGRES_USER: ${MCAPTCHA_DB_USER:-mcaptcha}
+      POSTGRES_PASSWORD: ${MCAPTCHA_DB_PASSWORD:-change-this-mcaptcha-password}
+    volumes:
+      - mcaptcha-db:/var/lib/postgresql/data
+
+  mcaptcha:
+    profiles:
+      - mcaptcha
+    image: mcaptcha/mcaptcha:latest
+    restart: unless-stopped
+    depends_on:
+      - mcaptcha-db
+    environment:
+      RUST_LOG: ${MCAPTCHA_RUST_LOG:-info}
+      DATABASE_URL: postgres://${MCAPTCHA_DB_USER:-mcaptcha}:${MCAPTCHA_DB_PASSWORD:-change-this-mcaptcha-password}@mcaptcha-db:5432/${MCAPTCHA_DB_NAME:-mcaptcha}
+    ports:
+      - "127.0.0.1:${MCAPTCHA_PORT:-7000}:7000"
+
+volumes:
+  mcaptcha-db:
