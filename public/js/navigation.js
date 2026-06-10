@@ -87,6 +87,7 @@ export function initNavigation() {
     const isOpen = menuButton.getAttribute("aria-expanded") === "true";
     menuButton.setAttribute("aria-expanded", String(!isOpen));
     nav.dataset.open = String(!isOpen);
+    updateMenuMetrics();
     window.requestAnimationFrame(updateMenuMetrics);
   });
 

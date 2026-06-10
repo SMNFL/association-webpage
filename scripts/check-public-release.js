@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { releaseCultureImageErrors } from "./release-checks.js";
 
 const protectedPaths = [
   /^\.env(?:\.|$)/,
@@ -82,6 +83,19 @@ for (const requiredHeader of [
 const netlifyFunction = readFileSync("netlify/functions/instagram-feed.js", "utf8");
 if (!/Strict-Transport-Security/.test(netlifyFunction) || !/X-Content-Type-Options/.test(netlifyFunction)) {
   errors.push("netlify Instagram function must include security headers");
+}
+
+for (const cultureFile of [
+  "public/data/culture.default.json",
+  "public/data/culture.local.example.json",
+  "public/data/culture.local.json"
+]) {
+  if (!existsSync(cultureFile)) continue;
+  try {
+    errors.push(...releaseCultureImageErrors(JSON.parse(readFileSync(cultureFile, "utf8")), cultureFile));
+  } catch (error) {
+    errors.push(`could not inspect ${cultureFile}: ${error.message}`);
+  }
 }
 
 if (errors.length) {

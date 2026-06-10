@@ -257,7 +257,7 @@ The application sets security headers itself. The reverse proxy must not remove 
 
 Set `TRUST_PROXY=loopback` when Caddy or Nginx runs on the same host and forwards to `127.0.0.1:8080`. Use `TRUST_PROXY=private` only when the reverse proxy is on a trusted private network. Leave `TRUST_PROXY=false` when the Node app is not behind a proxy. The app intentionally rejects broad proxy trust values.
 
-Do not expose the editor through this public reverse proxy. Start it only locally with `npm run editor` and use `http://127.0.0.1:8080/editor/`.
+Do not expose the editor through this public reverse proxy. Start it only locally with `npm run editor` and use `http://127.0.0.1:8081/editor/`.
 
 ## Without Your Own Website URL
 

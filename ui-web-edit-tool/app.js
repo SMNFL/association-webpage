@@ -763,14 +763,18 @@ async function uploadMedia(event) {
   const form = new FormData(els.mediaUpload);
   const file = form.get("file");
   if (!file || !file.size) return;
-  const selectedEvent = currentSelectedEvent();
+  const kind = String(form.get("kind") || "editor");
+  const selectedEvent = ["event", "eventArchive"].includes(kind) ? currentSelectedEvent() : null;
+  const selectedCulture = kind === "culture" ? currentSelectedCultureTheme() : null;
+  const typedTarget = String(form.get("eventSlug") || "").trim();
   const dataBase64 = await readFileAsDataUrl(file);
   const result = await api("/api/editor/media/upload", {
     method: "POST",
     body: {
       filename: file.name,
-      kind: form.get("kind"),
-      eventSlug: form.get("eventSlug") || selectedEvent?.id || selectedEvent?.slug || "",
+      kind,
+      eventSlug: kind === "culture" ? "" : typedTarget || selectedEvent?.id || selectedEvent?.slug || "",
+      cultureThemeId: kind === "culture" ? typedTarget || selectedCulture?.id || "" : "",
       date: form.get("date") || selectedEvent?.date || "",
       dataBase64
     }
@@ -778,6 +782,13 @@ async function uploadMedia(event) {
   state.media = (await api("/api/editor/media")).media;
   setStatus(`Uploaded ${result.media.path}`);
   render();
+}
+
+function currentSelectedCultureTheme() {
+  const pageFilter = String(state.pageFilter || "");
+  const id = pageFilter.startsWith("culture:") ? pageFilter.slice("culture:".length) : "";
+  if (!id) return null;
+  return (state.content.culture?.themes || []).find((theme) => theme.id === id) || null;
 }
 
 function mainGallery() {
@@ -1213,9 +1224,15 @@ function mediaGroupDetails(mediaPath) {
   }
   if (mediaPath.startsWith("assets/images/events/")) return { id: "events", label: "Active event covers", order: "2-events" };
   if (mediaPath.startsWith("assets/images/gallery/")) return { id: "gallery", label: "Homepage gallery", order: "3-gallery" };
-  if (mediaPath.startsWith("assets/images/instagram-previews/")) return { id: "instagram", label: "Instagram previews", order: "4-instagram" };
-  if (mediaPath.startsWith("assets/images/editor/")) return { id: "editor", label: "Editor uploads", order: "5-editor" };
-  return { id: "other", label: "Other website images", order: "6-other" };
+  const culture = mediaPath.match(/^assets\/images\/culture\/([^/]+)\//);
+  if (culture) {
+    const [, folder] = culture;
+    const theme = (state.content.culture?.themes || []).find((item) => item.id === folder);
+    return { id: `culture-${folder}`, label: `Culture: ${theme?.title || folder}`, order: `4-culture-${folder}` };
+  }
+  if (mediaPath.startsWith("assets/images/instagram-previews/")) return { id: "instagram", label: "Instagram previews", order: "5-instagram" };
+  if (mediaPath.startsWith("assets/images/editor/")) return { id: "editor", label: "Editor uploads", order: "6-editor" };
+  return { id: "other", label: "Other website images", order: "7-other" };
 }
 
 function invertDate(value) {

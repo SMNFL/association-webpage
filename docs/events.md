@@ -1,6 +1,6 @@
 # Events
 
-Events are edited through the local editor at `http://localhost:8080/editor/` after starting:
+Events are edited through the local editor at `http://localhost:8081/editor/` after starting:
 
 ```bash
 npm run editor

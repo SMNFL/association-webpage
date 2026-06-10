@@ -685,7 +685,7 @@ h2 {
 
   .statute-page--fixed-toc .statute-toc:not([hidden]) {
     width: 280px;
-    max-height: calc(100vh - 120px);
+    max-height: min(var(--toc-max-height, calc(100vh - 120px)), calc(100vh - 120px));
     z-index: 80;
   }
 
@@ -698,7 +698,7 @@ h2 {
 
   .statute-page--fixed-toc .statute-toc[data-toc-pin="fixed"] {
     position: fixed;
-    top: 96px;
+    top: var(--toc-fixed-top, 96px);
     left: max(var(--space-4), calc((100vw - var(--container)) / 2 + var(--space-4)));
   }
 
@@ -1440,6 +1440,12 @@ a.event-card:focus-visible {
   break-inside: avoid;
 }
 
+.artist-card__content {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
 .artist-card__image {
   border-radius: var(--radius-md);
 }
@@ -1461,6 +1467,60 @@ a.event-card:focus-visible {
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-4);
+}
+
+.artist-grid--leaders[data-single="true"] > .artist-card {
+  grid-template-columns: minmax(220px, 0.85fr) minmax(300px, 1.15fr);
+  grid-auto-flow: dense;
+  align-items: start;
+}
+
+.artist-grid--leaders[data-single="true"] > .artist-card--no-image {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.artist-grid--leaders[data-single="true"] .artist-card__image {
+  grid-row: span 2;
+  height: 100%;
+  min-height: 260px;
+  max-height: 520px;
+  object-fit: cover;
+}
+
+.artist-grid--leaders[data-single="true"] .artist-card__content {
+  grid-column: 2;
+  align-self: start;
+}
+
+.artist-grid--leaders[data-single="true"] .artist-card--no-image .artist-card__content {
+  grid-column: 1 / -1;
+}
+
+.artist-grid--leaders[data-single="true"] .artist-card__media,
+.artist-grid--leaders[data-single="true"] .media-embed-grid {
+  display: contents;
+}
+
+.artist-grid--leaders[data-single="true"] .media-embed {
+  align-self: start;
+  margin-top: 0;
+}
+
+.artist-grid--leaders[data-single="true"] .media-embed:not(.media-embed--spotify) {
+  grid-column: 2;
+}
+
+.artist-grid--leaders[data-single="true"] .artist-card--no-image .media-embed:not(.media-embed--spotify) {
+  grid-column: auto;
+}
+
+.artist-grid--leaders[data-single="true"] .media-embed--spotify {
+  grid-column: 1 / -1;
+  min-height: 380px;
+}
+
+.artist-grid--leaders[data-single="true"] .media-embed--soundcloud {
+  min-height: 260px;
 }
 
 .media-embed-grid {
@@ -1496,10 +1556,12 @@ a.event-card:focus-visible {
 }
 
 .media-embed iframe {
+  display: block;
   width: 100%;
   height: 100%;
   min-height: inherit;
   border: 0;
+  border-radius: inherit;
 }
 
 .event-detail-page {
@@ -2017,18 +2079,12 @@ a.event-card:focus-visible {
     z-index: 5;
   }
 
-  .statute-page--fixed-toc .statute-layout {
-    display: block;
-    position: relative;
-  }
-
-  .statute-page--fixed-toc .statute-toc:not([hidden]) {
+  .statute-toc[data-toc-disclosure]:not([hidden]) {
     display: grid;
     justify-items: end;
-    position: relative;
-    right: var(--space-3);
-    left: var(--space-3);
-    width: auto;
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-2));
+    width: 100%;
     max-height: none;
     padding: 0;
     border: 0;
@@ -2039,6 +2095,18 @@ a.event-card:focus-visible {
     z-index: 80;
   }
 
+  .statute-page--fixed-toc .statute-layout {
+    display: block;
+    position: relative;
+  }
+
+  .statute-page--fixed-toc .statute-toc:not([hidden]) {
+    position: relative;
+    right: var(--space-3);
+    left: var(--space-3);
+    width: auto;
+  }
+
   .statute-page--fixed-toc .statute-toc[data-toc-pin="before"],
   .statute-page--fixed-toc .statute-toc[data-toc-pin="after"] {
     position: absolute;
@@ -2047,7 +2115,7 @@ a.event-card:focus-visible {
 
   .statute-page--fixed-toc .statute-toc[data-toc-pin="fixed"] {
     position: fixed;
-    top: 80px;
+    top: var(--toc-fixed-top, 80px);
   }
 
   .statute-page--fixed-toc .statute-document {
@@ -2067,20 +2135,15 @@ a.event-card:focus-visible {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    min-height: 2.75rem;
-    max-width: min(18rem, calc(100vw - var(--space-6)));
-    padding: 0.68rem 0.9rem;
+    width: 44px;
+    height: 44px;
+    padding: 0;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-surface-strong);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
     color: var(--color-text);
     box-shadow: var(--shadow-card);
     font: inherit;
-    font-size: 0.78rem;
-    font-weight: 900;
-    line-height: 1;
-    text-transform: uppercase;
     cursor: pointer;
     backdrop-filter: blur(24px);
   }
@@ -2092,16 +2155,16 @@ a.event-card:focus-visible {
   }
 
   .statute-toc__chevron {
-    width: 0.5rem;
-    height: 0.5rem;
+    width: 0.62rem;
+    height: 0.62rem;
     border-right: 2px solid currentColor;
     border-bottom: 2px solid currentColor;
-    transform: rotate(45deg) translateY(-0.12rem);
+    transform: rotate(45deg) translate(-0.05rem, -0.12rem);
     transition: transform var(--transition);
   }
 
   .statute-toc[data-toc-open="true"] .statute-toc__chevron {
-    transform: rotate(225deg) translate(-0.08rem, -0.08rem);
+    transform: rotate(225deg) translate(-0.06rem, -0.06rem);
   }
 
   .statute-toc[data-toc-disclosure] ol {
@@ -2109,10 +2172,10 @@ a.event-card:focus-visible {
     top: calc(100% + var(--space-2));
     right: 0;
     display: none;
-    width: min(17rem, calc(100vw - var(--space-6)));
-    max-height: min(13rem, calc(100vh - 9rem));
+    width: min(20rem, calc(100vw - var(--space-6)));
+    max-height: min(70vh, calc(100vh - var(--header-height) - 6rem));
     margin-top: 0;
-    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+    padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--color-surface-strong) 84%, transparent);
@@ -2209,6 +2272,34 @@ a.event-card:focus-visible {
   .form-info-grid,
   .artist-card {
     grid-template-columns: 1fr;
+  }
+
+  .artist-grid--leaders[data-single="true"] > .artist-card,
+  .artist-grid--leaders[data-single="true"] .artist-card__content {
+    grid-template-columns: 1fr;
+  }
+
+  .artist-grid--leaders[data-single="true"] .artist-card__image {
+    grid-row: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    object-fit: contain;
+  }
+
+  .artist-grid--leaders[data-single="true"] .artist-card__content,
+  .artist-grid--leaders[data-single="true"] .artist-card__media,
+  .artist-grid--leaders[data-single="true"] .media-embed,
+  .artist-grid--leaders[data-single="true"] .media-embed:not(.media-embed--spotify),
+  .artist-grid--leaders[data-single="true"] .media-embed--spotify {
+    grid-column: 1;
+  }
+
+  .artist-grid--leaders[data-single="true"] .artist-card__media,
+  .artist-grid--leaders[data-single="true"] .media-embed-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
   }
 
   .artist-grid--masonry {

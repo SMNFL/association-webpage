@@ -139,7 +139,7 @@ function renderDocumentPage(page, pageKey = "") {
   }
 
   renderSections(page);
-  setupStatuteTocDisclosure(toc, hasFixedToc, page.tocTitle || "Contents");
+  setupStatuteTocDisclosure(toc, hasToc, page.tocTitle || "Contents");
   setupStatuteTocBounds(hasFixedToc);
 }
 
@@ -168,7 +168,6 @@ function setupStatuteTocDisclosure(toc, enabled, label = "Contents") {
     button.className = "statute-toc__toggle";
     button.dataset.tocToggle = "";
     button.innerHTML = `
-      <span data-toc-toggle-label></span>
       <span class="statute-toc__chevron" aria-hidden="true"></span>
     `;
     toc.prepend(button);
@@ -213,7 +212,6 @@ function setupStatuteTocDisclosure(toc, enabled, label = "Contents") {
     if (media.matches && event.target.closest("a")) setOpen(false);
   };
 
-  button.querySelector("[data-toc-toggle-label]").textContent = label;
   button.setAttribute("aria-controls", list.id);
   button.setAttribute("aria-label", label);
   button.addEventListener("pointerdown", handlePointerDown);
@@ -242,6 +240,8 @@ function setupStatuteTocBounds(enabled) {
   if (!enabled || !toc) {
     toc?.removeAttribute("data-toc-pin");
     toc?.style.removeProperty("--toc-anchor-top");
+    toc?.style.removeProperty("--toc-fixed-top");
+    toc?.style.removeProperty("--toc-max-height");
     return;
   }
 
@@ -257,12 +257,17 @@ function setupStatuteTocBounds(enabled) {
     const lastSection = sections.at(-1);
     if (!layout || !firstSection || !lastSection) return;
 
-    const fixedTop = window.matchMedia("(min-width: 981px)").matches ? 96 : 80;
+    const isDesktop = window.matchMedia("(min-width: 981px)").matches;
+    const headerOffset = isDesktop ? 72 : 80;
     const layoutTop = layout.getBoundingClientRect().top + window.scrollY;
     const lastBottom = lastSection.getBoundingClientRect().bottom + window.scrollY;
     const tocHeight = toc.offsetHeight;
     const startTop = layoutTop;
     const endTop = Math.max(startTop, lastBottom - tocHeight);
+    const availableHeight = Math.max(0, window.innerHeight - headerOffset);
+    const fixedTop = isDesktop
+      ? headerOffset + Math.max(24, Math.floor((availableHeight - tocHeight) / 2))
+      : headerOffset;
     const desiredTop = window.scrollY + fixedTop;
     const anchoredTop = Math.min(Math.max(desiredTop, startTop), endTop);
 
@@ -272,6 +277,8 @@ function setupStatuteTocBounds(enabled) {
         ? "after"
         : "fixed";
     toc.style.setProperty("--toc-anchor-top", `${Math.max(0, anchoredTop - layoutTop)}px`);
+    toc.style.setProperty("--toc-fixed-top", `${Math.max(0, fixedTop)}px`);
+    toc.style.setProperty("--toc-max-height", `${Math.max(220, window.innerHeight - fixedTop - 24)}px`);
   };
 
   const schedule = () => {
@@ -295,6 +302,8 @@ function setupStatuteTocBounds(enabled) {
     if (frame) window.cancelAnimationFrame(frame);
     toc.removeAttribute("data-toc-pin");
     toc.style.removeProperty("--toc-anchor-top");
+    toc.style.removeProperty("--toc-fixed-top");
+    toc.style.removeProperty("--toc-max-height");
   };
 }
 

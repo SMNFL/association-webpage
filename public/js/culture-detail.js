@@ -1,6 +1,6 @@
 import { initAnimations } from "./animations.js";
 import { loadMergedJson } from "./data.js";
-import { escapeHtml, safeAsset, safeCssPosition, safeIframeSrc } from "./security.js";
+import { escapeHtml, safeAsset, safeCssPosition, safeHref, safeIframeSrc } from "./security.js";
 import { applyTheme } from "./theme.js";
 
 const defaultSitePath = new URL("../data/site.default.json", import.meta.url);
@@ -59,18 +59,46 @@ function renderEmbeds(embeds = []) {
   `;
 }
 
+function renderLinks(links = []) {
+  const renderedLinks = links
+    .map((link) => {
+      const href = safeHref(link.url || link.href || "", { mailto: true });
+      if (!href) return "";
+      const external = /^https?:\/\//i.test(href);
+      return `
+        <a class="text-link" href="${escapeHtml(href)}"${external ? ' target="_blank" rel="noopener noreferrer"' : ""}>
+          ${escapeHtml(link.label || link.title || href)}
+        </a>
+      `;
+    })
+    .filter(Boolean)
+    .join("");
+  if (!renderedLinks) return "";
+  return `<div class="artist-links">${renderedLinks}</div>`;
+}
+
 function renderPerson(person) {
   const image = resolvePageAsset(person.image || "");
   const position = person.imagePosition ? ` style="object-position: ${escapeHtml(safeCssPosition(person.imagePosition))};"` : "";
+  const embeds = renderEmbeds(person.embeds || []);
+  const links = renderLinks(person.links || []);
+  const cardClasses = [
+    "artist-card",
+    image ? "" : "artist-card--no-image",
+    embeds ? "" : "artist-card--no-embeds"
+  ].filter(Boolean).join(" ");
   return `
-    <article class="artist-card" data-reveal>
+    <article class="${cardClasses}" data-reveal>
       ${image ? `<img class="artist-card__image" src="${escapeHtml(image)}" alt="${escapeHtml(person.imageAlt || person.name || "")}" loading="lazy"${position}>` : ""}
-      <div>
-        <span>${escapeHtml(person.role || "")}</span>
-        <h3>${escapeHtml(person.name || "")}</h3>
-        ${(person.paragraphs || []).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
-        ${renderEmbeds(person.embeds || [])}
+      <div class="artist-card__content">
+        <div class="artist-card__copy">
+          <span>${escapeHtml(person.role || "")}</span>
+          <h3>${escapeHtml(person.name || "")}</h3>
+          ${(person.paragraphs || []).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
+          ${links}
+        </div>
       </div>
+      ${embeds ? `<div class="artist-card__media">${embeds}</div>` : ""}
     </article>
   `;
 }
@@ -80,6 +108,9 @@ function renderPeople(selector, sectionSelector, people = []) {
   const node = document.querySelector(selector);
   if (!section || !node) return;
   section.hidden = !people.length;
+  node.dataset.count = String(people.length);
+  if (people.length === 1) node.dataset.single = "true";
+  else delete node.dataset.single;
   node.innerHTML = people.map((person) => renderPerson(person)).join("");
 }
 

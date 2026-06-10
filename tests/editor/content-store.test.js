@@ -11,8 +11,10 @@ import {
   readEvents,
   safeJoin,
   saveEvents,
+  saveUploadedMedia,
   slugify,
-  uniqueEventSlug
+  uniqueEventSlug,
+  writeContentKey
 } from "../../server/editor/content-store.js";
 
 test("slug generation is stable and unique", () => {
@@ -145,6 +147,74 @@ test("readEvents falls back to committed defaults until a local override exists"
 
   await writeFile(path.join(root, "public", "data", "events.content.json"), JSON.stringify([{ title: "Local Event" }]));
   assert.deepEqual(await readEvents(root), [{ title: "Local Event" }]);
+});
+
+test("culture content accepts local theme image paths", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "sukura-culture-valid-"));
+  await mkdir(path.join(root, "public", "data"), { recursive: true });
+
+  const saved = await writeContentKey(root, "culture", {
+    themes: [
+      {
+        id: "elektronische-musik",
+        title: "Elektronische Musik",
+        leads: [{ name: "Lead", image: "assets/images/culture/elektronische-musik/lead.webp" }],
+        artists: [{ name: "Artist", image: "assets/images/culture/elektronische-musik/artist.jpg" }]
+      }
+    ]
+  });
+
+  assert.equal(saved.themes[0].leads[0].image, "assets/images/culture/elektronische-musik/lead.webp");
+});
+
+test("culture content rejects remote or generic person image paths", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "sukura-culture-invalid-"));
+  await mkdir(path.join(root, "public", "data"), { recursive: true });
+
+  await assert.rejects(
+    writeContentKey(root, "culture", {
+      themes: [{ id: "kunst", leads: [{ image: "https://sukura.org/old.jpg" }] }]
+    }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.match(error.errors["themes.0.leads.0.image"], /stored locally/);
+      return true;
+    }
+  );
+
+  await assert.rejects(
+    writeContentKey(root, "culture", {
+      themes: [{ id: "kunst", artists: [{ image: "assets/images/editor/artist.jpg" }] }]
+    }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.match(error.errors["themes.0.artists.0.image"], /assets\/images\/culture\/kunst\//);
+      return true;
+    }
+  );
+});
+
+test("culture uploads are stored under the selected theme folder", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "sukura-culture-upload-"));
+  await mkdir(path.join(root, "public", "assets", "images"), { recursive: true });
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lw9q6wAAAABJRU5ErkJggg==", "base64");
+
+  const saved = await saveUploadedMedia(root, {
+    filename: "Lead Portrait.png",
+    kind: "culture",
+    cultureThemeId: "elektronische-musik",
+    dataBase64: `data:image/png;base64,${png.toString("base64")}`
+  });
+
+  assert.equal(saved.path, "assets/images/culture/elektronische-musik/lead-portrait.png");
+  await assert.rejects(
+    saveUploadedMedia(root, {
+      filename: "missing-theme.png",
+      kind: "culture",
+      dataBase64: `data:image/png;base64,${png.toString("base64")}`
+    }),
+    /culture theme id/i
+  );
 });
 
 test("deleteEvent removes generated content but preserves uploaded media and other event pages", async () => {

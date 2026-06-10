@@ -10,9 +10,11 @@ import { escapeHtml, safeAsset, safeCssPosition, safeHref } from "./security.js"
 
 const defaultEventsPath = new URL("../data/events.default.json", import.meta.url);
 const localEventsPath = new URL("../data/events.content.json", import.meta.url);
+const defaultSitePath = new URL("../data/site.default.json", import.meta.url);
+const localSitePath = new URL("../data/site.local.json", import.meta.url);
 
 function formatDate(dateString, labels = {}) {
-  if (!dateString) return labels.datePending || "Datum folgt";
+  if (!dateString) return labels.datePending || "";
   return new Intl.DateTimeFormat("en-US", {
     day: "2-digit",
     month: "short",
@@ -25,15 +27,15 @@ function eventCard(event, index, labels = {}, mode = "upcoming") {
   const href = eventUrl(event, index);
   const ticketUrl = event.ticketUrl || event.ticketLink;
   const actions = archiveMode ? [] : [
-    hasTickets(event) && ticketUrl ? `<a class="text-link" href="${escapeHtml(safeHref(ticketUrl) || "#")}" target="_blank" rel="noreferrer">${escapeHtml(labels.tickets || "Tickets")}</a>` : "",
-    event.instagramPostUrl ? `<a class="text-link" href="${escapeHtml(safeHref(event.instagramPostUrl) || "#")}" target="_blank" rel="noreferrer">${escapeHtml(labels.instagramPost || "Instagram Post")}</a>` : ""
+    hasTickets(event) && ticketUrl ? `<a class="text-link" href="${escapeHtml(safeHref(ticketUrl) || "#")}" target="_blank" rel="noreferrer">${escapeHtml(labels.tickets || "")}</a>` : "",
+    event.instagramPostUrl ? `<a class="text-link" href="${escapeHtml(safeHref(event.instagramPostUrl) || "#")}" target="_blank" rel="noreferrer">${escapeHtml(labels.instagramPost || "")}</a>` : ""
   ].filter(Boolean);
   const title = escapeHtml(event.title);
   const tag = archiveMode ? "a" : "article";
   const tagAttrs = archiveMode
-    ? `href="${escapeHtml(safeHref(href) || "#")}" aria-label="${escapeHtml(labels.archiveOpenLabel || "Open archive page")}: ${title}"`
+    ? `href="${escapeHtml(safeHref(href) || "#")}" aria-label="${escapeHtml(labels.archiveOpenLabel || "")}: ${title}"`
     : "";
-  const location = escapeHtml(event.location || labels.locationPending || "Ort folgt");
+  const location = escapeHtml(event.location || labels.locationPending || "");
   const tags = (event.tags || []).map((tag) => `<span>${escapeHtml(tag)}</span>`).join("");
 
   return `
@@ -52,7 +54,7 @@ function eventCard(event, index, labels = {}, mode = "upcoming") {
         <div class="tag-list">${tags}</div>
         ${archiveMode ? "" : `
           <div class="event-card__actions">
-            <a class="text-link" href="${escapeHtml(safeHref(href) || "#")}">${escapeHtml(labels.openEventPage || "Open event page")}</a>
+            <a class="text-link" href="${escapeHtml(safeHref(href) || "#")}">${escapeHtml(labels.openEventPage || "")}</a>
             ${actions.join("")}
           </div>
         `}
@@ -161,20 +163,39 @@ export async function renderEvents(labels = {}) {
   if (!upcomingNode || !pastNode) return;
 
   try {
+    const eventLabels = await resolveEventLabels(labels);
     const events = await loadMergedJson(defaultEventsPath, localEventsPath);
     const { upcoming, archive } = splitEventsForDisplay(events);
 
-    upcomingNode.innerHTML = upcoming.map((event, index) => eventCard(event, index, labels)).join("");
-    pastNode.innerHTML = archive.map((event, index) => eventCard(event, index, labels, "archive")).join("");
+    upcomingNode.innerHTML = upcoming.map((event, index) => eventCard(event, index, eventLabels)).join("");
+    pastNode.innerHTML = archive.map((event, index) => eventCard(event, index, eventLabels, "archive")).join("");
     if (emptyNode) emptyNode.hidden = events.length > 0;
     initArchiveSlider(document.querySelector("[data-archive-slider]"));
 
     if (!upcoming.length) {
-      upcomingNode.innerHTML = `<div class="empty-state">${escapeHtml(labels.emptyUpcoming || "New dates will be published soon.")}</div>`;
+      upcomingNode.innerHTML = `<div class="empty-state">${escapeHtml(eventLabels.emptyUpcoming || "")}</div>`;
     }
   } catch (error) {
     console.warn(error);
-    emptyNode.textContent = labels.emptyError || "Events could not be loaded.";
+    const eventLabels = await resolveEventLabels(labels);
+    emptyNode.textContent = eventLabels.emptyError || "";
     emptyNode.hidden = false;
   }
+}
+
+async function resolveEventLabels(section = {}) {
+  if (section?.labels) return flattenEventLabels(section);
+  try {
+    const site = await loadMergedJson(defaultSitePath, localSitePath);
+    return flattenEventLabels(site.eventsSection || {});
+  } catch {
+    return flattenEventLabels(section);
+  }
+}
+
+function flattenEventLabels(section = {}) {
+  return {
+    ...section,
+    ...(section.labels || {})
+  };
 }

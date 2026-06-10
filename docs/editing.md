@@ -61,7 +61,7 @@ Editable image references are in merged site data and canonical event data:
 - `public/data/events.default.json`
 - `public/data/events.content.json`
 
-For normal usage, run `npm run security:setup-editor` once, start `npm run editor`, open `http://127.0.0.1:8080/editor/`, log in, and use the Media section. The media list can copy a path, apply an image as the selected event cover, or append it to the selected event gallery.
+For normal usage, run `npm run security:setup-editor` once, start `npm run editor`, open `http://127.0.0.1:8081/editor/`, log in, and use the Media section. The media list can copy a path, apply an image as the selected event cover, or append it to the selected event gallery.
 
 Deployment-specific media directories are ignored by Git. Uploads stay available in the local working copy and are not automatically published with the reusable repository. Use a private deployment artifact or a separate private media pipeline for a real site.
 

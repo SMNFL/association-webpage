@@ -10,7 +10,7 @@ Add new events in the local editor:
 npm run editor
 ```
 
-Then open `http://localhost:8080/editor/` and use the `Events` section. The committed template with every field is `public/data/events.default.json`. Local events are saved in `public/data/events.content.json`. That file and the locally generated `public/pages/events/*.html` wrapper pages are not committed.
+Then open `http://localhost:8081/editor/` and use the `Events` section. The committed template with every field is `public/data/events.default.json`. Local events are saved in `public/data/events.content.json`. That file and the locally generated `public/pages/events/*.html` wrapper pages are not committed.
 
 An event should contain at least:
 

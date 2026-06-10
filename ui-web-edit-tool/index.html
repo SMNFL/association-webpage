@@ -227,18 +227,19 @@
                     <option value="event">Active events</option>
                     <option value="eventArchive">Event archive</option>
                     <option value="gallery">Homepage gallery</option>
+                    <option value="culture">Culture</option>
                   </select>
                 </label>
                 <label>
-                  <span>Event slug</span>
-                  <input name="eventSlug" placeholder="uses selected event when empty">
+                  <span>Event or culture id</span>
+                  <input name="eventSlug" placeholder="uses selected event or culture page when empty">
                 </label>
               </div>
               <label>
                 <span>Event date</span>
                 <input name="date" type="date">
               </label>
-              <p class="field-help">For archive uploads, empty event fields use the selected event date and slug.</p>
+              <p class="field-help">For archive uploads, empty event fields use the selected event date and slug. For culture uploads, the id uses the selected culture page when empty.</p>
               <button class="button" type="submit">Upload image</button>
             </form>
 

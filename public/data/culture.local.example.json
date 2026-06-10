@@ -16,6 +16,8 @@
         {
           "name": "Name",
           "role": "Role",
+          "image": "assets/images/culture/example/name.jpg",
+          "imageAlt": "Name portrait",
           "paragraphs": ["Short introduction."],
           "links": []
         }

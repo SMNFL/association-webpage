@@ -28,7 +28,7 @@ npm run security:setup-editor
 npm run editor
 ```
 
-Open the editor at `http://127.0.0.1:8080/editor/` and log in with the local admin password. The editor only runs in `EDITOR_MODE=1` with `EDITOR_LOCAL_ONLY=true` on `127.0.0.1`, writes only allowlisted content files, and generates event artifacts from structured data.
+Open the editor at `http://127.0.0.1:8081/editor/` and log in with the local admin password. The editor only runs in `EDITOR_MODE=1` with `EDITOR_LOCAL_ONLY=true` on `127.0.0.1`, writes only allowlisted content files, and generates event artifacts from structured data.
 
 With Docker, the default service starts the public website only. To run the local editor in Docker, first generate editor credentials and then start the opt-in editor profile:
 

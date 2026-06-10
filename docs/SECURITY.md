@@ -17,7 +17,7 @@ All Node dependencies live locally under `node_modules/`. The setup command writ
 Editor address:
 
 ```text
-http://127.0.0.1:8080/editor/
+http://127.0.0.1:8081/editor/
 ```
 
 The editor binds only to `127.0.0.1`. Router middleware also rejects non-local access. Editor pages and editor APIs require login. Write requests additionally require a valid CSRF token and matching origin.

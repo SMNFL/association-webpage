@@ -2,6 +2,7 @@ import path from "node:path";
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile, copyFile } from "node:fs/promises";
 import { safeAssetUrl, safeIframeUrl, safeUrl, sanitizeConfiguredContent } from "../security/content-safety.js";
 import { normalizeSiteContent } from "./site-theme.js";
+import { cultureImageReferenceErrors } from "./culture-images.js";
 
 const EDITABLE_FILES = {
   site: "public/data/site.local.json",
@@ -61,6 +62,10 @@ export async function writeContentKey(rootDir, key, value) {
   const filePath = resolveEditablePath(rootDir, key);
   assertJsonValue(value);
   const normalized = key === "site" ? normalizeSiteContent(value) : value;
+  if (key === "culture") {
+    const errors = cultureImageReferenceErrors(normalized);
+    if (Object.keys(errors).length) throw validationError(errors, "Culture content validation failed.");
+  }
   await writeJsonAtomic(rootDir, filePath, sanitizeConfiguredContent(normalized));
   return readContentKey(rootDir, key);
 }
@@ -453,8 +458,8 @@ function matchesImageSignature(buffer, extension) {
   return false;
 }
 
-function validationError(errors) {
-  return Object.assign(new Error("Event validation failed."), {
+function validationError(errors, message = "Event validation failed.") {
+  return Object.assign(new Error(message), {
     status: 400,
     errors
   });
@@ -500,6 +505,13 @@ function mediaFolder(payload) {
   if (kind === "eventArchive") return `eventsArchive/${date}-${slug}/display`;
   if (kind === "event") return "events";
   if (kind === "gallery") return "gallery";
+  if (kind === "culture") {
+    const themeId = cleanString(payload.cultureThemeId || payload.themeId || payload.eventSlug || payload.slug);
+    if (!themeId) {
+      throw Object.assign(new Error("Culture uploads require a culture theme id."), { status: 400 });
+    }
+    return `culture/${slugify(themeId)}`;
+  }
   return "editor";
 }
 

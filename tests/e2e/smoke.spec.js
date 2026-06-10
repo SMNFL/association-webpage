@@ -184,32 +184,143 @@ test("event rendering falls back to generic defaults when local content is absen
   await expect(page.locator(".detail-back")).toHaveAttribute("href", "../index.html#archive");
 });
 
+test("event action label comes from default site JSON", async ({ page }) => {
+  await page.route("**/data/events.content.json", (route) => route.fulfill({ status: 404, body: "" }));
+  await page.route("**/data/site.local.json", (route) => route.fulfill({ status: 404, body: "" }));
+
+  await page.goto("/index.html#events");
+  await expect(page.locator("[data-upcoming-events] .event-card__actions .text-link").first()).toHaveText("Open event page");
+});
+
+test("event action label uses local site JSON override", async ({ page }) => {
+  await page.route("**/data/events.content.json", (route) => route.fulfill({ status: 404, body: "" }));
+  await page.route("**/data/site.local.json", (route) => route.fulfill({
+    json: {
+      eventsSection: {
+        labels: {
+          openEventPage: "Lokale Eventseite"
+        }
+      }
+    }
+  }));
+
+  await page.goto("/index.html#events");
+  await expect(page.locator("[data-upcoming-events] .event-card__actions .text-link").first()).toHaveText("Lokale Eventseite");
+});
+
 test("culture detail single leader card fills the available row", async ({ page }) => {
   await routeCultureLayoutFixture(page, cultureLayoutFixture({
     leads: [
       {
         name: "Single Lead",
         role: "Program lead",
-        paragraphs: ["Short leader profile."]
+        image: "assets/icons/site-placeholder.svg",
+        imageAlt: "Placeholder lead portrait",
+        paragraphs: ["Short leader profile.", "Additional context for the lead area."],
+        links: [{ label: "Profile", url: "https://example.org/profile" }],
+        embeds: [
+          {
+            provider: "youtube",
+            title: "Lead video",
+            src: "https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ"
+          },
+          {
+            provider: "spotify",
+            title: "Lead playlist",
+            src: "https://open.spotify.com/embed/playlist/37i9dQZF1DX4dyzvuaRJ0n"
+          }
+        ]
       }
     ]
   }));
 
-  await page.setViewportSize({ width: 900, height: 800 });
+  await page.setViewportSize({ width: 1000, height: 800 });
   await page.goto("/pages/culture-detail.html?id=layout-test");
   await expect(page.locator("[data-theme-leads] .artist-card")).toHaveCount(1);
+  await expect(page.locator("[data-theme-leads]")).toHaveAttribute("data-count", "1");
+  await expect(page.locator("[data-theme-leads]")).toHaveAttribute("data-single", "true");
 
-  const layout = await page.evaluate(() => {
+  const desktop = await page.evaluate(() => {
     const grid = document.querySelector("[data-theme-leads]");
     const card = grid.querySelector(".artist-card");
+    const image = card.querySelector(".artist-card__image");
+    const content = card.querySelector(".artist-card__content");
+    const youtube = card.querySelector(".media-embed--youtube");
+    const spotify = card.querySelector(".media-embed--spotify");
+    const spotifyFrame = spotify.querySelector("iframe");
     const gridRect = grid.getBoundingClientRect();
     const cardRect = card.getBoundingClientRect();
+    const imageRect = image.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+    const youtubeRect = youtube.getBoundingClientRect();
+    const spotifyRect = spotify.getBoundingClientRect();
+    const spotifyStyles = getComputedStyle(spotify);
+    const spotifyFrameStyles = getComputedStyle(spotifyFrame);
     return {
       gridWidth: Math.round(gridRect.width),
-      cardWidth: Math.round(cardRect.width)
+      cardWidth: Math.round(cardRect.width),
+      cardLeft: Math.round(cardRect.left),
+      cardRight: Math.round(cardRect.right),
+      imageRight: Math.round(imageRect.right),
+      imageBottom: Math.round(imageRect.bottom),
+      contentLeft: Math.round(contentRect.left),
+      contentBottom: Math.round(contentRect.bottom),
+      youtubeLeft: Math.round(youtubeRect.left),
+      youtubeRight: Math.round(youtubeRect.right),
+      youtubeTop: Math.round(youtubeRect.top),
+      spotifyLeft: Math.round(spotifyRect.left),
+      spotifyRight: Math.round(spotifyRect.right),
+      spotifyTop: Math.round(spotifyRect.top),
+      youtubeHeight: Math.round(youtubeRect.height),
+      spotifyHeight: Math.round(spotifyRect.height),
+      spotifyRadius: spotifyStyles.borderTopLeftRadius,
+      spotifyFrameRadius: spotifyFrameStyles.borderTopLeftRadius
     };
   });
-  expect(Math.abs(layout.gridWidth - layout.cardWidth)).toBeLessThanOrEqual(2);
+  expect(Math.abs(desktop.gridWidth - desktop.cardWidth)).toBeLessThanOrEqual(2);
+  expect(desktop.contentLeft).toBeGreaterThanOrEqual(desktop.imageRight - 2);
+  expect(desktop.youtubeLeft).toBeGreaterThanOrEqual(desktop.imageRight - 2);
+  expect(desktop.youtubeTop).toBeGreaterThanOrEqual(desktop.contentBottom);
+  expect(desktop.spotifyTop).toBeGreaterThanOrEqual(Math.max(desktop.imageBottom, desktop.youtubeTop + desktop.youtubeHeight));
+  expect(desktop.spotifyLeft).toBeGreaterThan(desktop.cardLeft);
+  expect(desktop.spotifyRight).toBeLessThan(desktop.cardRight);
+  expect(desktop.spotifyHeight).toBeGreaterThanOrEqual(380);
+  expect(desktop.youtubeHeight).toBeLessThan(desktop.spotifyHeight);
+  expect(Number.parseFloat(desktop.spotifyRadius)).toBeGreaterThan(0);
+  expect(Number.parseFloat(desktop.spotifyFrameRadius)).toBeGreaterThan(0);
+
+  await page.setViewportSize({ width: 480, height: 800 });
+  await page.waitForTimeout(100);
+  const mobile = await page.evaluate(() => {
+    const card = document.querySelector("[data-theme-leads] .artist-card");
+    const image = card.querySelector(".artist-card__image");
+    const content = card.querySelector(".artist-card__content");
+    const copy = card.querySelector(".artist-card__copy");
+    const media = card.querySelector(".artist-card__media");
+    const embeds = Array.from(card.querySelectorAll(".media-embed"));
+    const imageRect = image.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+    const copyRect = copy.getBoundingClientRect();
+    const mediaRect = media.getBoundingClientRect();
+    const embedRects = embeds.map((embed) => embed.getBoundingClientRect());
+    return {
+      imageBottom: Math.round(imageRect.bottom),
+      contentTop: Math.round(contentRect.top),
+      copyLeft: Math.round(copyRect.left),
+      mediaLeft: Math.round(mediaRect.left),
+      copyBottom: Math.round(copyRect.bottom),
+      mediaTop: Math.round(mediaRect.top),
+      firstEmbedLeft: Math.round(embedRects[0].left),
+      firstEmbedBottom: Math.round(embedRects[0].bottom),
+      secondEmbedLeft: Math.round(embedRects[1].left),
+      secondEmbedTop: Math.round(embedRects[1].top)
+    };
+  });
+  expect(mobile.contentTop).toBeGreaterThanOrEqual(mobile.imageBottom);
+  expect(Math.abs(mobile.copyLeft - mobile.mediaLeft)).toBeLessThanOrEqual(2);
+  expect(mobile.mediaTop).toBeGreaterThanOrEqual(mobile.copyBottom);
+  expect(Math.abs(mobile.firstEmbedLeft - mobile.secondEmbedLeft)).toBeLessThanOrEqual(2);
+  expect(mobile.secondEmbedTop).toBeGreaterThanOrEqual(mobile.firstEmbedBottom);
 });
 
 test("culture detail multiple leader cards stay responsive", async ({ page }) => {
@@ -231,12 +342,18 @@ test("culture detail multiple leader cards stay responsive", async ({ page }) =>
   await page.setViewportSize({ width: 900, height: 800 });
   await page.goto("/pages/culture-detail.html?id=layout-test");
   await expect(page.locator("[data-theme-leads] .artist-card")).toHaveCount(2);
+  await expect(page.locator("[data-theme-leads]")).toHaveAttribute("data-count", "2");
+  await expect(page.locator("[data-theme-leads]")).not.toHaveAttribute("data-single", "true");
 
   const desktop = await page.evaluate(() => {
+    const grid = document.querySelector("[data-theme-leads]");
+    const gridRect = grid.getBoundingClientRect();
     const cards = Array.from(document.querySelectorAll("[data-theme-leads] .artist-card"));
     return cards.map((card) => {
       const rect = card.getBoundingClientRect();
       return {
+        gridWidth: Math.round(gridRect.width),
+        width: Math.round(rect.width),
         left: Math.round(rect.left),
         right: Math.round(rect.right),
         top: Math.round(rect.top)
@@ -245,6 +362,7 @@ test("culture detail multiple leader cards stay responsive", async ({ page }) =>
   });
   expect(desktop[1].left).toBeGreaterThan(desktop[0].right);
   expect(Math.abs(desktop[0].top - desktop[1].top)).toBeLessThanOrEqual(2);
+  expect(desktop[0].width).toBeLessThan(desktop[0].gridWidth * 0.75);
 
   await page.setViewportSize({ width: 480, height: 800 });
   await page.waitForTimeout(100);
@@ -369,8 +487,15 @@ test("Bylaws table of contents stays visible while scrolling", async ({ page }) 
   });
   await expect(toc).toBeVisible();
   await expect(toc).toHaveAttribute("data-toc-pin", "fixed");
-  const fixedDesktop = await toc.evaluate((node) => Math.round(node.getBoundingClientRect().top));
-  expect(Math.abs(fixedDesktop - 96)).toBeLessThanOrEqual(4);
+  const fixedDesktop = await page.evaluate(() => {
+    const tocRect = document.querySelector(".statute-toc").getBoundingClientRect();
+    return {
+      spaceAbove: Math.round(tocRect.top - 72),
+      spaceBelow: Math.round(window.innerHeight - tocRect.bottom)
+    };
+  });
+  expect(fixedDesktop.spaceAbove).toBeGreaterThanOrEqual(20);
+  expect(Math.abs(fixedDesktop.spaceAbove - fixedDesktop.spaceBelow)).toBeLessThanOrEqual(48);
 
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   const bottomDesktop = await page.evaluate(() => {
@@ -388,6 +513,10 @@ test("Bylaws table of contents stays visible while scrolling", async ({ page }) 
   await page.goto("/pages/bylaws.html");
   await expect(toc).toBeVisible();
   await expect(toc).toHaveAttribute("data-toc-pin", "before");
+  const mobileToggle = page.locator("[data-toc-toggle]");
+  await expect(mobileToggle).toBeVisible();
+  await expect(mobileToggle).toHaveText("");
+  await expect(mobileToggle).toHaveAttribute("aria-expanded", "false");
   const initialMobile = await page.evaluate(() => {
     const tocRect = document.querySelector(".statute-toc").getBoundingClientRect();
     const heroRect = document.querySelector(".statute-hero").getBoundingClientRect();
@@ -458,8 +587,15 @@ test("Crowdfunding table of contents uses the bounded pinned document layout", a
     window.dispatchEvent(new Event("scroll"));
   });
   await expect(toc).toHaveAttribute("data-toc-pin", "fixed");
-  const fixedDesktop = await toc.evaluate((node) => Math.round(node.getBoundingClientRect().top));
-  expect(Math.abs(fixedDesktop - 96)).toBeLessThanOrEqual(4);
+  const fixedDesktop = await page.evaluate(() => {
+    const tocRect = document.querySelector(".statute-toc").getBoundingClientRect();
+    return {
+      spaceAbove: Math.round(tocRect.top - 72),
+      spaceBelow: Math.round(window.innerHeight - tocRect.bottom)
+    };
+  });
+  expect(fixedDesktop.spaceAbove).toBeGreaterThanOrEqual(20);
+  expect(Math.abs(fixedDesktop.spaceAbove - fixedDesktop.spaceBelow)).toBeLessThanOrEqual(48);
   const brRendering = await page.locator("#crowdfunding-section-2 p").evaluate((node) => ({
     html: node.innerHTML,
     brCount: node.querySelectorAll("br").length
@@ -485,6 +621,7 @@ test("Crowdfunding table of contents uses the bounded pinned document layout", a
   await expect(toc).toHaveAttribute("data-toc-pin", "before");
   const mobileToggle = page.locator("[data-toc-toggle]");
   await expect(mobileToggle).toBeVisible();
+  await expect(mobileToggle).toHaveText("");
   await expect(mobileToggle).toHaveAttribute("aria-expanded", "false");
   const initialMobile = await page.evaluate(() => {
     const tocRect = document.querySelector(".statute-toc").getBoundingClientRect();
@@ -527,18 +664,64 @@ test("Crowdfunding table of contents uses the bounded pinned document layout", a
       scrollY: Math.round(window.scrollY),
       tocHeight: Math.round(tocRect.height),
       listHeight: Math.round(listRect.height),
+      listBottom: Math.round(listRect.bottom),
       listDisplay: getComputedStyle(document.querySelector("[data-page-toc-list]")).display,
-      listWidth: Math.round(listRect.width)
+      listWidth: Math.round(listRect.width),
+      viewportHeight: window.innerHeight
     };
   });
   expect(openMobile.listDisplay).toBe("grid");
   expect(openMobile.pin).toBe("fixed");
   expect(openMobile.tocHeight).toBeLessThanOrEqual(58);
-  expect(openMobile.listHeight).toBeLessThanOrEqual(216);
-  expect(openMobile.listWidth).toBeLessThanOrEqual(280);
+  expect(openMobile.listHeight).toBeLessThanOrEqual(Math.round(openMobile.viewportHeight * 0.7) + 2);
+  expect(openMobile.listBottom).toBeLessThanOrEqual(openMobile.viewportHeight - 8);
+  expect(openMobile.listWidth).toBeLessThanOrEqual(320);
 
   await page.locator('[data-page-toc-list] a[href="#crowdfunding-section-1"]').click();
   await expect(mobileToggle).toHaveAttribute("aria-expanded", "false");
+});
+
+test("Document table of contents uses an icon-only mobile disclosure on every document page", async ({ page }) => {
+  await page.route("**/data/pages.local.json", (route) => route.fulfill({
+    json: {
+      legalNotice: {
+        title: "Legal notice",
+        layout: "document",
+        showToc: true,
+        tocTitle: "Contents",
+        sections: [
+          { id: "legal-one", heading: "Legal one", paragraphs: ["Legal text."] },
+          { id: "legal-two", heading: "Legal two", paragraphs: ["More legal text."] }
+        ]
+      },
+      privacy: {
+        title: "Privacy",
+        layout: "document",
+        showToc: true,
+        tocTitle: "Contents",
+        sections: [
+          { id: "privacy-one", heading: "Privacy one", paragraphs: ["Privacy text."] },
+          { id: "privacy-two", heading: "Privacy two", paragraphs: ["More privacy text."] }
+        ]
+      }
+    }
+  }));
+
+  await page.setViewportSize({ width: 480, height: 800 });
+  for (const path of ["/pages/privacy.html", "/pages/legal-notice.html"]) {
+    await page.goto(path);
+    const toc = page.locator(".statute-toc");
+    const toggle = page.locator("[data-toc-toggle]");
+    const list = page.locator("[data-page-toc-list]");
+    await expect(toc).toBeVisible();
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveText("");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(list).toHaveCSS("display", "none");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(list).toHaveCSS("display", "grid");
+  }
 });
 
 test("local page overrides render German content through English canonical keys", async ({ page }) => {
