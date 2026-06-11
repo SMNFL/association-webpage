@@ -3,11 +3,14 @@ import { initAnimations } from "./animations.js";
 import { renderEvents } from "./events.js";
 import { renderInstagram } from "./instagram-live.js";
 import { loadMergedJson } from "./data.js";
+import { initContentSlider } from "./slider.js";
 import { escapeHtml, safeAsset, safeHref, safeIframeSrc } from "./security.js";
 import { applyTheme } from "./theme.js";
 
 const defaultConfigPath = new URL("../data/site.default.json", import.meta.url);
 const localConfigPath = new URL("../data/site.local.json", import.meta.url);
+let cleanupGallerySlider = () => {};
+let cleanupGalleryResize = () => {};
 
 async function loadSiteConfig() {
   return loadMergedJson(defaultConfigPath, localConfigPath);
@@ -157,12 +160,56 @@ function renderCulture(config) {
 
 function renderGallery(config) {
   const gallery = document.querySelector("[data-gallery]");
+  const slider = document.querySelector("[data-gallery-slider]");
   if (!gallery) return;
-  gallery.innerHTML = (config.images?.gallery || []).map((image, index) => `
-    <figure class="mood-tile ${index === 0 ? "mood-tile--wide" : ""}" data-reveal>
-      <img src="${escapeHtml(safeAsset(image.src))}" alt="${escapeHtml(image.alt || config.name || "Gallery image")}" loading="lazy">
-    </figure>
-  `).join("");
+  const images = config.images?.gallery || [];
+  let currentPageSize = 0;
+  let resizeFrame = 0;
+
+  function pageSize() {
+    if (window.matchMedia("(max-width: 760px)").matches) return 2;
+    if (window.matchMedia("(max-width: 980px)").matches) return 4;
+    return 6;
+  }
+
+  function renderPages() {
+    cleanupGallerySlider();
+    currentPageSize = pageSize();
+    const pages = [];
+    for (let index = 0; index < images.length; index += currentPageSize) {
+      pages.push(images.slice(index, index + currentPageSize));
+    }
+    gallery.innerHTML = pages.map((page, pageIndex) => `
+      <div class="mood-page" data-gallery-page="${pageIndex}">
+        ${page.map((image) => `
+          <figure class="mood-tile" data-reveal>
+            <img src="${escapeHtml(safeAsset(image.src))}" alt="${escapeHtml(image.alt || config.name || "Gallery image")}" loading="lazy">
+          </figure>
+        `).join("")}
+      </div>
+    `).join("");
+    cleanupGallerySlider = initContentSlider(slider, {
+      viewportSelector: "[data-gallery-viewport]",
+      trackSelector: "[data-gallery]",
+      prevSelector: "[data-gallery-prev]",
+      nextSelector: "[data-gallery-next]"
+    });
+  }
+
+  cleanupGalleryResize();
+  renderPages();
+  const handleResize = () => {
+    if (resizeFrame) return;
+    resizeFrame = window.requestAnimationFrame(() => {
+      resizeFrame = 0;
+      if (pageSize() !== currentPageSize) renderPages();
+    });
+  };
+  window.addEventListener("resize", handleResize);
+  cleanupGalleryResize = () => {
+    if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+    window.removeEventListener("resize", handleResize);
+  };
 }
 
 function renderContact(config) {

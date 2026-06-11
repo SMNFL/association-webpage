@@ -21,6 +21,33 @@ async function routeCultureLayoutFixture(page, fixture) {
   await page.route("**/data/culture.local.json", (route) => route.fulfill({ json: fixture }));
 }
 
+async function routeGalleryFixture(page, count = 10) {
+  await page.route("**/data/site.local.json", (route) => route.fulfill({
+    json: {
+      images: {
+        gallery: Array.from({ length: count }, (_, index) => ({
+          src: "assets/icons/site-placeholder.svg",
+          alt: `Gallery ${index + 1}`
+        }))
+      }
+    }
+  }));
+}
+
+async function visibleMoodGalleryAlts(page) {
+  return page.evaluate(() => {
+    const viewport = document.querySelector("[data-gallery-viewport]");
+    const viewportRect = viewport.getBoundingClientRect();
+    return Array.from(document.querySelectorAll("[data-gallery] .mood-tile")).filter((tile) => {
+      const rect = tile.getBoundingClientRect();
+      return rect.right > viewportRect.left
+        && rect.left < viewportRect.right
+        && rect.bottom > viewportRect.top
+        && rect.top < viewportRect.bottom;
+    }).map((tile) => tile.querySelector("img")?.alt || "");
+  });
+}
+
 test("homepage loads and renders Instagram previews", async ({ page }) => {
   const consoleErrors = [];
   const instagramApiRequests = [];
@@ -43,6 +70,21 @@ test("homepage loads and renders Instagram previews", async ({ page }) => {
   expect(instagramApiRequests).toHaveLength(1);
   expect(instagramApiRequests[0]).toContain("/api/instagram-feed?username=example&limit=4");
   expect(consoleErrors).toEqual([]);
+});
+
+test("homepage renders two Instagram previews on small screens while keeping the configured feed limit", async ({ page }) => {
+  const instagramApiRequests = [];
+  page.on("request", (request) => {
+    if (/\/(?:api|\.netlify\/functions)\/instagram-feed/.test(request.url())) {
+      instagramApiRequests.push(request.url());
+    }
+  });
+
+  await page.setViewportSize({ width: 480, height: 800 });
+  await page.goto("/index.html#instagram");
+  await expect(page.locator(".instagram-preview-card")).toHaveCount(2);
+  expect(instagramApiRequests).toHaveLength(1);
+  expect(instagramApiRequests[0]).toContain("/api/instagram-feed?username=example&limit=4");
 });
 
 test("homepage uses the local Instagram JSON only when the live feed fails", async ({ page }) => {
@@ -74,6 +116,50 @@ test("homepage uses the local Instagram JSON only when the live feed fails", asy
     "Fallback post 3",
     "Fallback post 4"
   ]);
+});
+
+test("mood gallery uses paged slider controls across desktop and mobile", async ({ page }) => {
+  await routeGalleryFixture(page, 10);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/index.html#gallery");
+  await expect(page.locator("[data-gallery] .mood-page")).toHaveCount(2);
+  await expect(page.locator('[data-gallery-page="0"] .mood-tile')).toHaveCount(6);
+  await expect(page.locator('[data-gallery-page="1"] .mood-tile')).toHaveCount(4);
+  await expect(page.locator("[data-gallery-prev]")).toBeDisabled();
+  await expect(page.locator("[data-gallery-next]")).toBeEnabled();
+  await expect.poll(() => visibleMoodGalleryAlts(page)).toEqual([
+    "Gallery 1",
+    "Gallery 2",
+    "Gallery 3",
+    "Gallery 4",
+    "Gallery 5",
+    "Gallery 6"
+  ]);
+
+  await page.locator("[data-gallery-next]").click();
+  await expect(page.locator("[data-gallery-prev]")).toBeEnabled();
+  await expect(page.locator("[data-gallery-next]")).toBeDisabled();
+  await expect.poll(() => visibleMoodGalleryAlts(page)).toEqual([
+    "Gallery 7",
+    "Gallery 8",
+    "Gallery 9",
+    "Gallery 10"
+  ]);
+
+  await page.setViewportSize({ width: 480, height: 800 });
+  await page.goto("/index.html#gallery");
+  await expect(page.locator("[data-gallery] .mood-page")).toHaveCount(5);
+  await expect(page.locator('[data-gallery-page="0"] .mood-tile')).toHaveCount(2);
+  await expect.poll(() => visibleMoodGalleryAlts(page)).toEqual(["Gallery 1", "Gallery 2"]);
+
+  await page.locator("[data-gallery-next]").click();
+  await expect.poll(() => visibleMoodGalleryAlts(page)).toEqual(["Gallery 3", "Gallery 4"]);
+
+  const viewport = page.locator("[data-gallery-viewport]");
+  await viewport.dispatchEvent("pointerdown", { pointerType: "touch", clientX: 340, clientY: 120 });
+  await viewport.dispatchEvent("pointerup", { pointerType: "touch", clientX: 120, clientY: 122 });
+  await expect.poll(() => visibleMoodGalleryAlts(page)).toEqual(["Gallery 5", "Gallery 6"]);
 });
 
 test("archive cards exist and link to local event pages", async ({ page }) => {
@@ -490,7 +576,7 @@ test("Bylaws table of contents stays visible while scrolling", async ({ page }) 
   const fixedDesktop = await page.evaluate(() => {
     const tocRect = document.querySelector(".statute-toc").getBoundingClientRect();
     return {
-      spaceAbove: Math.round(tocRect.top - 72),
+      spaceAbove: Math.round(tocRect.top),
       spaceBelow: Math.round(window.innerHeight - tocRect.bottom)
     };
   });
@@ -590,7 +676,7 @@ test("Crowdfunding table of contents uses the bounded pinned document layout", a
   const fixedDesktop = await page.evaluate(() => {
     const tocRect = document.querySelector(".statute-toc").getBoundingClientRect();
     return {
-      spaceAbove: Math.round(tocRect.top - 72),
+      spaceAbove: Math.round(tocRect.top),
       spaceBelow: Math.round(window.innerHeight - tocRect.bottom)
     };
   });

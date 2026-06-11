@@ -643,7 +643,7 @@ h2 {
 
 .statute-toc ol {
   display: grid;
-  gap: 0.36rem;
+  gap: 0.28rem;
   margin: 0;
   padding-left: 1.55rem;
   list-style-position: outside;
@@ -685,7 +685,7 @@ h2 {
 
   .statute-page--fixed-toc .statute-toc:not([hidden]) {
     width: 280px;
-    max-height: min(var(--toc-max-height, calc(100vh - 120px)), calc(100vh - 120px));
+    max-height: var(--toc-max-height, calc(100vh - 48px));
     z-index: 80;
   }
 
@@ -1766,9 +1766,23 @@ a.event-card:focus-visible {
   grid-row: span 2;
 }
 
-.mood-grid {
+.mood-slider {
+  min-width: 0;
+}
+
+.mood-slider__track {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-4);
+  transform: translate3d(0, 0, 0);
+  transition: transform 420ms ease;
+  will-change: transform;
+}
+
+.mood-page {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  flex: 0 0 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-auto-rows: 260px;
   gap: var(--space-3);
 }
@@ -2028,8 +2042,7 @@ a.event-card:focus-visible {
 .site-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-3);
   max-width: var(--container);
   margin: 0 auto;
   padding: var(--space-5) var(--space-4);
@@ -2050,6 +2063,7 @@ a.event-card:focus-visible {
 }
 
 .site-footer nav {
+  margin-left: auto;
   flex-wrap: wrap;
   gap: var(--space-3);
 }
@@ -2065,10 +2079,7 @@ a.event-card:focus-visible {
 }
 
 .footer-credit {
-  display: inline-flex;
-  align-items: center;
   gap: 0.38rem;
-  margin-right: auto;
   color: color-mix(in srgb, var(--color-muted) 76%, transparent);
   font-size: 0.68rem;
   font-weight: 800;
@@ -2258,7 +2269,7 @@ a.event-card:focus-visible {
   }
 
   .culture-grid,
-  .mood-grid,
+  .mood-page,
   .form-info-grid,
   .event-gallery__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2364,7 +2375,8 @@ a.event-card:focus-visible {
     flex-basis: 100%;
   }
 
-  .mood-grid {
+  .mood-page {
+    grid-template-columns: 1fr;
     grid-auto-rows: 240px;
   }
 
@@ -2396,9 +2408,10 @@ a.event-card:focus-visible {
     align-items: flex-start;
   }
 
-  .footer-credit {
-    margin-right: 0;
+  .site-footer nav {
+    margin-left: 0;
   }
+
 }
 
 @media (prefers-reduced-motion: reduce) {

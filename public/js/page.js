@@ -258,15 +258,21 @@ function setupStatuteTocBounds(enabled) {
     if (!layout || !firstSection || !lastSection) return;
 
     const isDesktop = window.matchMedia("(min-width: 981px)").matches;
-    const headerOffset = isDesktop ? 72 : 80;
+    const headerOffset = isDesktop ? 0 : 80;
+    const edgeGap = isDesktop ? 12 : 24;
+    const maxAvailableHeight = isDesktop
+      ? Math.max(220, window.innerHeight - edgeGap * 2)
+      : Math.max(220, window.innerHeight - headerOffset - edgeGap);
+    const visibleTocHeight = isDesktop
+      ? Math.min(toc.scrollHeight, maxAvailableHeight)
+      : toc.offsetHeight;
     const layoutTop = layout.getBoundingClientRect().top + window.scrollY;
     const lastBottom = lastSection.getBoundingClientRect().bottom + window.scrollY;
-    const tocHeight = toc.offsetHeight;
+    const tocHeight = visibleTocHeight;
     const startTop = layoutTop;
     const endTop = Math.max(startTop, lastBottom - tocHeight);
-    const availableHeight = Math.max(0, window.innerHeight - headerOffset);
     const fixedTop = isDesktop
-      ? headerOffset + Math.max(24, Math.floor((availableHeight - tocHeight) / 2))
+      ? Math.max(edgeGap, Math.floor((window.innerHeight - visibleTocHeight) / 2))
       : headerOffset;
     const desiredTop = window.scrollY + fixedTop;
     const anchoredTop = Math.min(Math.max(desiredTop, startTop), endTop);
@@ -278,7 +284,7 @@ function setupStatuteTocBounds(enabled) {
         : "fixed";
     toc.style.setProperty("--toc-anchor-top", `${Math.max(0, anchoredTop - layoutTop)}px`);
     toc.style.setProperty("--toc-fixed-top", `${Math.max(0, fixedTop)}px`);
-    toc.style.setProperty("--toc-max-height", `${Math.max(220, window.innerHeight - fixedTop - 24)}px`);
+    toc.style.setProperty("--toc-max-height", `${maxAvailableHeight}px`);
   };
 
   const schedule = () => {

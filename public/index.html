@@ -106,7 +106,19 @@
           <h2 data-gallery-title></h2>
           <p data-gallery-description></p>
         </div>
-        <div class="mood-grid" data-gallery></div>
+        <div class="archive-slider mood-slider" data-gallery-slider data-reveal>
+          <div class="archive-slider__controls mood-slider__controls" aria-label="Gallery navigation">
+            <button class="archive-slider__button" type="button" data-gallery-prev aria-label="Show previous gallery images">
+              <span aria-hidden="true">←</span>
+            </button>
+            <button class="archive-slider__button" type="button" data-gallery-next aria-label="Show next gallery images">
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+          <div class="archive-slider__viewport mood-slider__viewport" data-gallery-viewport>
+            <div class="mood-slider__track" data-gallery></div>
+          </div>
+        </div>
       </section>
 
       <section id="instagram" class="section section--split instagram">

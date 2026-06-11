@@ -4,6 +4,7 @@ const LIVE_INSTAGRAM_ENDPOINTS = [
   "/api/instagram-feed",
   "/.netlify/functions/instagram-feed"
 ];
+let cleanupResponsiveInstagram = () => {};
 
 function imageForPost(post) {
   return post.media_type === "VIDEO"
@@ -33,6 +34,13 @@ function withInstagramParams(endpoint, instagram = {}) {
   return url.pathname + url.search;
 }
 
+function visiblePostLimit(instagram = {}) {
+  const configuredLimit = Number(instagram.postLimit || 4);
+  return window.matchMedia("(max-width: 760px)").matches
+    ? Math.min(configuredLimit, 2)
+    : configuredLimit;
+}
+
 function renderProfile(profile = {}, instagram = {}, renderedPostCount = 0) {
   const usernameNode = document.querySelector("[data-instagram-username]");
   const sourceNode = document.querySelector("[data-instagram-source]");
@@ -53,7 +61,7 @@ function renderProfile(profile = {}, instagram = {}, renderedPostCount = 0) {
 }
 
 function renderPreviewGrid(container, posts = [], instagram = {}) {
-  const visiblePosts = posts.slice(0, Number(instagram.postLimit || 4));
+  const visiblePosts = posts.slice(0, visiblePostLimit(instagram));
   if (!visiblePosts.length) return false;
 
   container.innerHTML = `
@@ -98,6 +106,16 @@ function renderPosts(container, feed, instagram) {
   renderProfile(profile, instagram, posts.length);
 }
 
+function bindResponsiveInstagram(render) {
+  cleanupResponsiveInstagram();
+  const media = window.matchMedia("(max-width: 760px)");
+  const handleChange = () => render();
+  media.addEventListener("change", handleChange);
+  cleanupResponsiveInstagram = () => {
+    media.removeEventListener("change", handleChange);
+  };
+}
+
 export async function renderInstagram(instagram = {}) {
   const usernameNode = document.querySelector("[data-instagram-username]");
   const profileLinks = document.querySelectorAll("[data-instagram-link]");
@@ -122,12 +140,16 @@ export async function renderInstagram(instagram = {}) {
     try {
       const feed = await fetchJson(endpoint);
       if (!feed.posts?.length) continue;
-      renderPosts(embed, feed, { ...instagram, username });
+      const renderLoadedFeed = () => renderPosts(embed, feed, { ...instagram, username });
+      renderLoadedFeed();
+      bindResponsiveInstagram(renderLoadedFeed);
       return;
     } catch (error) {
       console.warn(error);
     }
   }
 
-  renderPosts(embed, { posts: [], profile: { username } }, instagram);
+  const renderEmptyFeed = () => renderPosts(embed, { posts: [], profile: { username } }, instagram);
+  renderEmptyFeed();
+  bindResponsiveInstagram(renderEmptyFeed);
 }

@@ -1,4 +1,5 @@
 import { loadMergedJson } from "./data.js";
+import { initContentSlider } from "./slider.js";
 import {
   eventExcerpt,
   eventUrl,
@@ -69,23 +70,7 @@ function getVisibleCount() {
   return 3;
 }
 
-function initArchiveSlider(slider) {
-  const viewport = slider.querySelector("[data-archive-viewport]");
-  const track = slider.querySelector("[data-past-events]");
-  const prevButton = slider.querySelector("[data-archive-prev]");
-  const nextButton = slider.querySelector("[data-archive-next]");
-  if (!viewport || !track || !prevButton || !nextButton) return;
-
-  let currentIndex = 0;
-  let pointerStartX = 0;
-  let pointerStartY = 0;
-  let pointerTracking = false;
-
-  function maxIndex() {
-    return Math.max(0, track.children.length - getVisibleCount());
-  }
-
-  function equalizeCardHeights() {
+function equalizeArchiveCardHeights(track) {
     const cards = [...track.children];
     cards.forEach((card) => {
       card.style.height = "auto";
@@ -94,66 +79,6 @@ function initArchiveSlider(slider) {
     cards.forEach((card) => {
       card.style.height = `${maxHeight}px`;
     });
-  }
-
-  function update() {
-    equalizeCardHeights();
-    currentIndex = Math.min(Math.max(currentIndex, 0), maxIndex());
-    const activeCard = track.children[currentIndex];
-    const offset = activeCard ? activeCard.offsetLeft : 0;
-    track.style.transform = `translate3d(${-offset}px, 0, 0)`;
-    prevButton.disabled = currentIndex === 0;
-    nextButton.disabled = currentIndex >= maxIndex();
-  }
-
-  function goTo(index) {
-    currentIndex = index;
-    update();
-  }
-
-  function step(direction) {
-    const visibleCount = getVisibleCount();
-    goTo(currentIndex + (visibleCount * direction));
-  }
-
-  prevButton.addEventListener("click", () => step(-1));
-  nextButton.addEventListener("click", () => step(1));
-
-  slider.addEventListener("keydown", (event) => {
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      step(-1);
-    }
-    if (event.key === "ArrowRight") {
-      event.preventDefault();
-      step(1);
-    }
-  });
-
-  viewport.addEventListener("pointerdown", (event) => {
-    if (event.pointerType === "mouse") return;
-    pointerTracking = true;
-    pointerStartX = event.clientX;
-    pointerStartY = event.clientY;
-  });
-
-  viewport.addEventListener("pointerup", (event) => {
-    if (!pointerTracking) return;
-    pointerTracking = false;
-    const deltaX = event.clientX - pointerStartX;
-    const deltaY = event.clientY - pointerStartY;
-    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) < Math.abs(deltaY)) return;
-    step(deltaX < 0 ? 1 : -1);
-  });
-
-  viewport.addEventListener("pointercancel", () => {
-    pointerTracking = false;
-  });
-
-  window.addEventListener("resize", () => {
-    window.requestAnimationFrame(update);
-  });
-  window.requestAnimationFrame(update);
 }
 
 export async function renderEvents(labels = {}) {
@@ -170,7 +95,14 @@ export async function renderEvents(labels = {}) {
     upcomingNode.innerHTML = upcoming.map((event, index) => eventCard(event, index, eventLabels)).join("");
     pastNode.innerHTML = archive.map((event, index) => eventCard(event, index, eventLabels, "archive")).join("");
     if (emptyNode) emptyNode.hidden = events.length > 0;
-    initArchiveSlider(document.querySelector("[data-archive-slider]"));
+    initContentSlider(document.querySelector("[data-archive-slider]"), {
+      viewportSelector: "[data-archive-viewport]",
+      trackSelector: "[data-past-events]",
+      prevSelector: "[data-archive-prev]",
+      nextSelector: "[data-archive-next]",
+      getVisibleCount,
+      beforeUpdate: equalizeArchiveCardHeights
+    });
 
     if (!upcoming.length) {
       upcomingNode.innerHTML = `<div class="empty-state">${escapeHtml(eventLabels.emptyUpcoming || "")}</div>`;
