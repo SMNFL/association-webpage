@@ -20,7 +20,7 @@ The recommended production setup. A `cloudflared` container opens an **outbound*
 Visitor (IPv4 or IPv6)
   ↓ HTTPS, Cloudflare edge certificate
 Cloudflare edge: TLS termination, HTTP→HTTPS, www→apex, compression
-  ↓ encrypted tunnel (QUIC or HTTP/2), opened outbound by cloudflared
+  ↓ encrypted tunnel (HTTP/2 over TCP 443), opened outbound by cloudflared
 cloudflared container   (Compose profile "tunnel", network "edge" only)
   ↓ plain HTTP inside the isolated Docker network "edge"
 website container :8080 (also on 127.0.0.1:8080 for local checks)
@@ -249,7 +249,7 @@ After the tunnel has worked over IPv4 and IPv6 for a few days:
 ## Security Considerations
 
 - **TLS terminates at Cloudflare.** Visitors' HTTPS ends at Cloudflare's edge, where requests are decrypted, processed and re-encrypted into the tunnel. Cloudflare can read all traffic, including contact messages and membership applications with IBAN/BIC. Treat Cloudflare as a data processor: accept Cloudflare's self-serve data processing addendum and name Cloudflare in the privacy policy (hosting/CDN/security; US transfer under the EU-US Data Privacy Framework).
-- **No inbound ports.** `cloudflared` authenticates with the token and connects outbound over TLS (QUIC, or HTTP/2 over TCP 443 as fallback). The router and the server accept no connections from the internet.
+- **No inbound ports.** `cloudflared` authenticates with the token and connects outbound over TLS (HTTP/2 over TCP 443; QUIC over UDP is disabled because it stalls behind carrier-grade NAT). The router and the server accept no connections from the internet.
 - **Last hop.** `cloudflared` → `website:8080` is plain HTTP inside the `edge` Docker network, which contains only these two containers and never leaves the host.
 - **The token is the tunnel.** Anyone with it can run a connector that receives the site's traffic. It lives only in `secrets/cloudflare-tunnel-token` (owner-only; ignored by Git, Docker builds and the release check; mounted as a Docker secret, not an environment variable, so it does not appear in `docker inspect`). If it may have leaked: tunnel → **Refresh token**, replace the file, `docker compose --profile tunnel up -d`.
 - **Least privilege.** `cloudflared` runs as non-root with a read-only filesystem, no Linux capabilities, `no-new-privileges`, no published ports, metrics on `127.0.0.1` inside the container, and auto-update and remote diagnostics disabled. The website also drops all capabilities. The editor is on its own network and rejects requests with forwarding headers.
@@ -268,6 +268,7 @@ After the tunnel has worked over IPv4 and IPv6 for a few days:
 | 502 Bad Gateway | Route target is wrong (`localhost`, `https://`). Use `http://website:8080`; check `website` is healthy. |
 | "Invalid service URL format" in the dashboard | Enter the full URL: `http://website:8080`. |
 | Cloudflare error 1033 | No connector running: `docker compose --profile tunnel up -d`, check logs. |
+| Site returns 530/1033, `cloudflared` `unhealthy`, log: `failed to dial to edge with quic` | UDP (QUIC) stalls through carrier-grade NAT and cloudflared does not fall back to TCP once QUIC was used. `compose.yaml` therefore sets `--protocol http2` (TCP 443). Recreate the container: `docker compose --profile tunnel up -d cloudflared`. Docker does not restart `unhealthy` containers by itself. |
 | `cloudflared` never starts, `dependency failed` | Website health check fails: `docker compose logs website`, `curl http://127.0.0.1:8080/healthz`. |
 | Contact form "Request verification failed" (403) | `Origin` and `Host` differ: remove Host header overrides in the route; make sure the www redirect is active. |
 | All visitors share one IP in logs | `TRUST_PROXY` is not `private`; fix `.env` and redeploy. |

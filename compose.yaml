@@ -35,6 +35,10 @@ services:
       - --metrics
       - 127.0.0.1:20241
       - --management-diagnostics=false
+      # HTTP/2 over TCP 443 instead of QUIC (UDP 7844): UDP through carrier-grade NAT (DS-Lite) can stall,
+      # and cloudflared does not fall back to TCP once a QUIC tunnel has been established.
+      - --protocol
+      - http2
       - run
     environment:
       TUNNEL_TOKEN_FILE: /run/secrets/cloudflare_tunnel_token
