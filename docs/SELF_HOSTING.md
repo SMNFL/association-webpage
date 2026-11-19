@@ -343,13 +343,10 @@ Without `SITE_URL` the site still works, but `/sitemap.xml` returns 404 and page
 Residential IPv6 prefixes change. When they do, the AAAA record points to a dead address and the site is offline until DNS is updated. Point the record at the Mac's stable ("secured") address and keep it current with [`scripts/strato-dyndns.sh`](../scripts/strato-dyndns.sh):
 
 1. In the STRATO customer area enable DynDNS for the domain and set a DynDNS password.
-2. Create `.env.dyndns` in the repository root (ignored by Git and Docker, never commit it):
+2. Create `.env.dyndns` from the template (the copy is ignored by Git and Docker; never commit it) and fill in hosts, STRATO DynDNS user (the domain) and password:
 
-   ```env
-   DYNDNS_HOSTS=example.org,www.example.org
-   STRATO_DYNDNS_USER=example.org
-   STRATO_DYNDNS_PASSWORD=your-dyndns-password
-   DYNDNS_INTERFACE=en0
+   ```bash
+   cp .env.dyndns.example .env.dyndns
    ```
 
 3. Run it once by hand. It prints `unchanged` when DNS is already correct and only calls STRATO when the address differs:

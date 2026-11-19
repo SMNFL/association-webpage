@@ -225,6 +225,7 @@ sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
 
   Cloudflare supports connector versions for about a year.
 - Stop only the tunnel: `docker compose stop cloudflared`. The website keeps running locally.
+- Monitoring (free): Cloudflare dashboard → **Notifications** → **Add** → **Tunnel Health Alert** → select the tunnel → enter an email address. You get a mail when the tunnel becomes unhealthy or down. Docker does not restart an `unhealthy` container on its own, so this alert is the signal to recreate it (`docker compose --profile tunnel up -d cloudflared`). Status at a glance: Zero Trust → Networks → Tunnels (Healthy/Down), locally `docker compose --profile tunnel ps`.
 - `docker compose config` prints resolved `.env` secrets in plain text. Validate with `docker compose config --quiet` and do not share its output.
 
 ## Step 8: Retire The Direct Path
