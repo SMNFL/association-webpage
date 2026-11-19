@@ -254,3 +254,17 @@ test("generated archive event page links back to the archive section", () => {
   const html = generateEventPageHtml({ id: "archived-event", title: "Archived Event", status: "archive" });
   assert.match(html, /href="\.\.\/\.\.\/index\.html#archive"/);
 });
+
+test("backup pruning keeps only the newest snapshot folders", async () => {
+  const { pruneBackups } = await import("../../server/editor/content-store.js");
+  const { readdir } = await import("node:fs/promises");
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), "editor-backups-"));
+  const stamps = ["2026-01-01T00-00-00-000Z", "2026-01-02T00-00-00-000Z", "2026-01-03T00-00-00-000Z", "2026-01-04T00-00-00-000Z"];
+  for (const stamp of stamps) await mkdir(path.join(rootDir, ".editor-backups", stamp), { recursive: true });
+  await writeFile(path.join(rootDir, ".editor-backups", "README.txt"), "not a snapshot");
+
+  await pruneBackups(rootDir, 2);
+
+  const remaining = (await readdir(path.join(rootDir, ".editor-backups"))).sort();
+  assert.deepEqual(remaining, ["2026-01-03T00-00-00-000Z", "2026-01-04T00-00-00-000Z", "README.txt"]);
+});

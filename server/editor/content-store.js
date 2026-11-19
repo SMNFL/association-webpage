@@ -1,5 +1,5 @@
 import path from "node:path";
-import { mkdir, readFile, readdir, rename, stat, unlink, writeFile, copyFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile, copyFile } from "node:fs/promises";
 import { safeAssetUrl, safeIframeUrl, safeUrl, sanitizeConfiguredContent } from "../security/content-safety.js";
 import { normalizeSiteContent } from "./site-theme.js";
 import { cultureImageReferenceErrors } from "./culture-images.js";
@@ -17,6 +17,9 @@ const EVENT_STATUSES = new Set(["upcoming", "archive"]);
 const TICKET_FIELDS = ["ticketUrl", "ticketLink", "ticketEmbed", "ticketEmbedHeight", "ticketDetails"];
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 const DEFAULT_EVENT_IMAGE = "assets/icons/site-placeholder.svg";
+const BACKUP_DIR = ".editor-backups";
+const BACKUP_SNAPSHOT_NAME = /^\d{4}-\d{2}-\d{2}T[\d-]+Z$/;
+const DEFAULT_BACKUP_KEEP = 50;
 
 export function editableRegistry() {
   return Object.entries(EDITABLE_FILES).map(([key, relativePath]) => ({ key, relativePath }));
@@ -333,9 +336,31 @@ async function backupFile(rootDir, filePath) {
 
   const relative = path.relative(rootDir, filePath).split(path.sep).join("__");
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const backupPath = safeJoin(rootDir, `.editor-backups/${stamp}/${relative}`);
+  const backupPath = safeJoin(rootDir, `${BACKUP_DIR}/${stamp}/${relative}`);
   await mkdir(path.dirname(backupPath), { recursive: true });
   await copyFile(filePath, backupPath);
+  await pruneBackups(rootDir);
+}
+
+/**
+ * Keeps the newest `keep` snapshot folders in .editor-backups (EDITOR_BACKUP_KEEP, default 50).
+ * Snapshot names are ISO timestamps, so lexical order is chronological. Other entries are left alone.
+ */
+export async function pruneBackups(rootDir, keep = Number(process.env.EDITOR_BACKUP_KEEP) || DEFAULT_BACKUP_KEEP) {
+  const backupRoot = safeJoin(rootDir, BACKUP_DIR);
+  let entries = [];
+  try {
+    entries = await readdir(backupRoot, { withFileTypes: true });
+  } catch (error) {
+    if (error.code === "ENOENT") return;
+    throw error;
+  }
+  const snapshots = entries
+    .filter((entry) => entry.isDirectory() && BACKUP_SNAPSHOT_NAME.test(entry.name))
+    .map((entry) => entry.name)
+    .sort();
+  const expired = snapshots.slice(0, Math.max(0, snapshots.length - Math.max(1, keep)));
+  await Promise.all(expired.map((name) => rm(safeJoin(backupRoot, name), { recursive: true, force: true })));
 }
 
 function assertJsonValue(value) {
