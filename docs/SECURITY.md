@@ -71,13 +71,14 @@ Rotate external secrets at their provider too if they were exposed: SMTP passwor
 
 ## Production
 
-Run the public Node website with `npm run start` behind HTTPS. A reverse proxy must terminate TLS and preserve the standard headers. SMTP, hCaptcha, and mCaptcha secrets belong only in the server environment.
+Run the public Node website (Docker image or `npm run start`) behind HTTPS. Cloudflare Tunnel (recommended, [`cloudflare-tunnel.md`](cloudflare-tunnel.md)) or a reverse proxy terminates TLS and must preserve the standard headers. SMTP, hCaptcha, and mCaptcha secrets belong only in the server environment.
 
 Important environment variables:
 
 ```env
 NODE_ENV=production
-TRUST_PROXY=false
+TRUST_PROXY=private
+SITE_URL=https://example.org
 SMTP_HOST=smtp.example.org
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -95,10 +96,10 @@ CONTACT_ALLOW_WITHOUT_CAPTCHA=0
 Choose `TRUST_PROXY` by the address the Node process actually sees for proxied requests:
 
 - `loopback`: Node runs directly on the host and the reverse proxy (Caddy, Nginx) connects via `127.0.0.1`.
-- `private`: Node runs in Docker behind a host reverse proxy. Docker's port mapping delivers requests from the bridge gateway (for example `172.17.0.1` or `192.168.65.1`), which is a private address, not loopback.
+- `private`: Node runs in Docker behind Cloudflare Tunnel (requests come from the `cloudflared` container) or behind a host reverse proxy (Docker's port mapping delivers requests from the bridge gateway, e.g. `172.17.0.1` or `192.168.65.1`). Both are private addresses, not loopback.
 - `false`: nothing sits in front of Node.
 
-With the wrong value every visitor shares one IP: the contact-form limit (5 per 15 minutes) then applies to the whole site and one person can block the form for everyone. Do not use broad `true` proxy trust. Caddy replaces client-supplied `X-Forwarded-For` headers by default, so the forwarded IP cannot be spoofed through it.
+With the wrong value every visitor shares one IP: the contact-form limit (5 per 15 minutes) then applies to the whole site and one person can block the form for everyone. Do not use broad `true` proxy trust. Cloudflare appends the visitor IP to `X-Forwarded-For` and Caddy replaces client-supplied values, so with `private` the forwarded IP cannot be spoofed in either setup.
 
 In production, contact mail configured through `SMTP_HOST` and `CONTACT_TO` requires a selected CAPTCHA provider unless `CONTACT_ALLOW_WITHOUT_CAPTCHA=1` is deliberately set. That opt-out is intended only for deployments with equivalent upstream abuse protection.
 
@@ -150,7 +151,7 @@ Update dependencies regularly and review security advisories. If a secret leaks,
 - The CSP keeps `img-src https:` because events may reference remote HTTPS images, and `style-src 'unsafe-inline'` because the ticket-shop embed and theme colors use inline styles. Scripts remain restricted to `'self'` plus the listed providers.
 - Membership applications include IBAN, BIC, date of birth and address and are delivered by email in plain text (only the raw dump is redacted). They stay in the receiving mailbox until someone deletes them; see [`membership.md`](membership.md) for the retention rule.
 - Outside `NODE_ENV=production` server errors include the underlying message. The Docker image always sets `NODE_ENV=production`; do not expose a development server publicly.
-- A home-hosted setup depends on the ISP: a changed IPv6 prefix takes the site offline until DNS follows (see the DynDNS section in [`SELF_HOSTING.md`](SELF_HOSTING.md)), and an IPv6-only DNS record is unreachable for IPv4-only visitors. Cloudflare Tunnel removes both problems and all inbound ports.
+- Direct home hosting (alternative to the tunnel) depends on the ISP: a changed IPv6 prefix takes the site offline until DNS follows (DynDNS, see [`SELF_HOSTING.md`](SELF_HOSTING.md)), an IPv6-only record is unreachable for IPv4-only visitors, and TCP 80/443 must be open. Cloudflare Tunnel removes all three.
 - With Cloudflare Tunnel, TLS from visitors terminates at Cloudflare, which can read all traffic including form submissions; name Cloudflare as processor in the privacy policy. The tunnel token grants control of the connector: keep it only in `secrets/cloudflare-tunnel-token`, never in `.env`, Git or images, and refresh it in the dashboard if exposed. Never route the editor or mCaptcha through the tunnel. Details: [`cloudflare-tunnel.md`](cloudflare-tunnel.md#security-considerations).
 
 ## HTTPS And Header Verification
@@ -158,7 +159,7 @@ Update dependencies regularly and review security advisories. If a secret leaks,
 After DNS and TLS are live, verify the public response:
 
 ```bash
-curl -I https://simonswelt.de/
+curl -I https://example.org/
 ```
 
 Confirm these headers are present:
@@ -170,14 +171,18 @@ Confirm these headers are present:
 - `Referrer-Policy`
 - `Permissions-Policy`
 
-Also confirm HTTP redirects to HTTPS at the reverse proxy or hosting provider.
+Also confirm that HTTP redirects to HTTPS (Cloudflare: SSL/TLS → Edge Certificates → Always Use HTTPS; otherwise the reverse proxy or hosting provider):
+
+```bash
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" http://example.org/
+```
 
 ## Public Release Checklist
 
 - Rotate editor password/session secret with `npm run security:setup-editor`.
 - Rotate any SMTP, hCaptcha, mCaptcha, or editor secret that may have been shared outside the host.
 - Keep `.env`, `.env.dyndns`, `secrets/`, `.editor-backups/`, local JSON overrides, generated pages and private media out of Git and public static hosting.
-- Set `NODE_ENV=production`, `TRUST_PROXY` (usually `private` for Docker behind Caddy), `SITE_URL`, SMTP variables, and one CAPTCHA mode (`none`, `hcaptcha`, or `mcaptcha`).
+- Set `NODE_ENV=production`, `TRUST_PROXY` (`private` with Cloudflare Tunnel or Docker behind a reverse proxy), `SITE_URL`, SMTP variables, and one CAPTCHA mode (`none`, `hcaptcha`, or `mcaptcha`).
 - Run `npm audit --omit=dev` and fix advisories before each release.
 - Keep `EDITOR_MODE` off for the public website. If the editor is started separately, set `EDITOR_LOCAL_ONLY=true`.
 - Do not proxy `/editor` or `/api/editor` from the public domain.

@@ -35,8 +35,8 @@ The handles shown in the homepage contact card belong beside the other contact c
 
 The browser uses one fixed sequence:
 
-1. Request `/api/instagram-feed?username=...&limit=4` on the self-hosted Node server.
-2. If that route is unavailable, request `/.netlify/functions/instagram-feed?username=...&limit=4` for Netlify/static deployments.
+1. Request `/api/instagram-feed?limit=4` on the self-hosted Node server. The browser still sends `username`, but the server ignores it and uses its configured account.
+2. If that route is unavailable, request `/.netlify/functions/instagram-feed?limit=4` for Netlify/static deployments.
 3. Render the newest public posts returned by the first successful live endpoint.
 4. If both live requests fail or return no posts, load `public/data/instagram-feed.local.json`.
 5. If the fallback also has no posts, show a clean link to the Instagram profile.

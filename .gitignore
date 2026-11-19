@@ -34,3 +34,5 @@ docs/simonswel.de.selfhosting.md
 .vscode/
 # Docker secrets (Cloudflare Tunnel token etc.)
 secrets/
+# Python venv for the Instagram helper (non-Docker runs)
+.venv-instagram/

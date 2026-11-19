@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Keeps the STRATO AAAA record pointed at this Mac's stable ("secured") IPv6 address.
 # The ISP can change the IPv6 prefix at any time; without this the site silently goes offline.
+# Only for DIRECT hosting with DNS at STRATO. Not needed with Cloudflare Tunnel (DNS at Cloudflare,
+# the tunnel record never changes); see docs/cloudflare-tunnel.md.
 #
 # Usage:  scripts/strato-dyndns.sh [path/to/.env.dyndns]
 # Config (default: .env.dyndns in the repo root, never commit it):

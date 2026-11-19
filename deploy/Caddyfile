@@ -1,4 +1,6 @@
-# Reference Caddy configuration for a home-hosted deployment.
+# Reference Caddy configuration for DIRECT hosting (server with a public IP, TCP 80/443 open).
+# Not needed with Cloudflare Tunnel, the recommended setup (docs/cloudflare-tunnel.md): there Cloudflare
+# handles TLS, compression and redirects, and cloudflared reaches the website without a reverse proxy.
 # Copy to the Caddy config location (Homebrew: /opt/homebrew/etc/Caddyfile), replace example.org,
 # then: caddy validate --config <file> && caddy reload --config <file>
 

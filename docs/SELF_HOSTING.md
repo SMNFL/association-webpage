@@ -1,15 +1,32 @@
 # Self-Hosting
 
-The website can run as a Node service on your own server. The Node server serves static files from `public/` and exposes APIs under `/api/...`.
+How to run the Node server (with or without Docker) and configure it. The Node server serves static files from `public/` and exposes APIs under `/api/...`.
+
+To publish it, the recommended way is **Cloudflare Tunnel** ([`cloudflare-tunnel.md`](cloudflare-tunnel.md)): no reverse proxy, port forwarding or DynDNS needed. A reverse proxy (Caddy/Nginx) with your own certificate is the [alternative](#alternative-direct-hosting-with-a-reverse-proxy) for servers with a public IP. Overview and checklist: [`deployment.md`](deployment.md).
 
 ## Start
 
+Without Docker (Node.js 22):
+
 ```bash
-npm install --omit=dev
-NODE_ENV=production TRUST_PROXY=loopback PORT=8080 npm run start
+npm ci --omit=dev
 ```
 
-`npm install` installs dependencies locally under `node_modules/`. The public Node service does not serve the editor. The editor is started separately and only locally with `npm run editor`. Details: [`SECURITY.md`](SECURITY.md).
+The live Instagram feed runs a small Python helper (`scripts/instagram-fetch.py`) that needs `curl_cffi`. The Docker image includes it; without Docker, install it into a virtual environment and point the server at it:
+
+```bash
+python3 -m venv .venv-instagram && .venv-instagram/bin/pip install "curl_cffi==0.17.0"
+```
+
+macOS gets prebuilt packages. On Linux (especially ARM, e.g. Raspberry Pi) `cffi` is compiled, so install the build tools first: `sudo apt install python3-venv gcc libc6-dev libffi-dev`.
+
+```bash
+NODE_ENV=production TRUST_PROXY=loopback PORT=8080 INSTAGRAM_PYTHON="$PWD/.venv-instagram/bin/python" npm run start
+```
+
+Without the helper the site works, and the homepage shows the fallback feed from `public/data/instagram-feed.local.json`.
+
+`npm ci` installs dependencies locally under `node_modules/`. The public Node service does not serve the editor. The editor is started separately and only locally with `npm run editor`. Details: [`SECURITY.md`](SECURITY.md).
 
 ## Docker / Raspberry Pi
 
@@ -47,13 +64,19 @@ Be careful: this command also removes stored volume data. Use it only when you r
 docker compose down -v
 ```
 
-The Compose file intentionally binds the Node service only to `127.0.0.1:8080`. In production, put it behind Nginx, Caddy, or Traefik with HTTPS. If you want to test the service directly on your LAN, deliberately change the port line to `8080:8080`.
+The Compose file intentionally binds the Node service only to `127.0.0.1:8080`. In production, publish it through Cloudflare Tunnel (`docker compose --profile tunnel up -d --build`, see [`cloudflare-tunnel.md`](cloudflare-tunnel.md)) or a reverse proxy with HTTPS. If you want to test the service directly on your LAN, deliberately change the port line to `8080:8080`.
 
 The default container starts only the public website. Runtime secrets come from `env_file: .env`.
 
-Behind a host reverse proxy (Caddy/Nginx on the same machine) set `TRUST_PROXY=private` for the Docker container: Docker's port mapping delivers requests from the bridge gateway, not from `127.0.0.1`, so `loopback` would make every visitor share one IP for rate limits.
+Set `TRUST_PROXY=private` for the Docker container, both with Cloudflare Tunnel and behind a host reverse proxy: requests arrive from a private Docker address (the `cloudflared` container or the bridge gateway), not from `127.0.0.1`, so `loopback` would make every visitor share one IP for rate limits.
 
-After changing code, dependencies, the `Dockerfile` or `.env`, rebuild so the container picks it up:
+After changing code, dependencies, the `Dockerfile` or `.env`, rebuild so the container picks it up. With the tunnel, always include the profile:
+
+```bash
+docker compose --profile tunnel up -d --build
+```
+
+Without the tunnel:
 
 ```bash
 docker compose up -d --build website
@@ -175,9 +198,11 @@ Then open:
 http://localhost
 ```
 
-## Custom Domain And HTTPS
+## Alternative: Direct Hosting With A Reverse Proxy
 
-The Node app should not be directly exposed to the internet in production. Let it run locally on `127.0.0.1:8080` and provide HTTPS with a reverse proxy.
+> Not needed with Cloudflare Tunnel. Use this section only for a server with its own public IP where visitors connect directly. Behind DS-Lite or without port forwarding, use [`cloudflare-tunnel.md`](cloudflare-tunnel.md) instead.
+
+The Node app should not be directly exposed to the internet. Let it run locally on `127.0.0.1:8080` and provide HTTPS with a reverse proxy.
 
 Requirements:
 
@@ -195,16 +220,25 @@ ports:
   - "127.0.0.1:8080:8080"
 ```
 
-### Caddy Recommended
+### Caddy
 
-Caddy is usually the easiest option for small self-hosted setups because it creates and renews Let's Encrypt certificates automatically.
+Caddy is the easiest reverse proxy for small direct-hosting setups because it creates and renews Let's Encrypt certificates automatically.
 
-Install:
+Install on Debian/Ubuntu:
 
 ```bash
-sudo apt update
-sudo apt install caddy
+sudo apt update && sudo apt install caddy
 ```
+
+On macOS:
+
+```bash
+brew install caddy
+```
+
+Ports 80 and 443 need root on macOS, so run Caddy as a root service (`sudo brew services start caddy`). Homebrew then takes root ownership of the Caddy files; later updates also need `sudo` (`sudo brew upgrade caddy`).
+
+Caddy obtains and renews the Let's Encrypt certificate itself once DNS points to the server and TCP 80/443 are reachable from the internet. Certificates are stored in Caddy's data directory; nothing needs to be copied into this project.
 
 Copy the reference config [`deploy/Caddyfile`](../deploy/Caddyfile) to `/etc/caddy/Caddyfile` (Homebrew on macOS: `/opt/homebrew/etc/Caddyfile`) and replace `example.org`:
 
@@ -302,7 +336,9 @@ EDITOR_BACKUP_KEEP=50
 
 Without `SITE_URL` the site still works, but `/sitemap.xml` returns 404 and pages have no canonical link.
 
-## Home Hosting With Dynamic IPv6 (DynDNS)
+## Direct Hosting At Home: Dynamic IPv6 (DynDNS)
+
+> Not needed with Cloudflare Tunnel: DNS then lives at Cloudflare and the tunnel record never changes. Only for direct hosting with DNS at STRATO.
 
 Residential IPv6 prefixes change. When they do, the AAAA record points to a dead address and the site is offline until DNS is updated. Point the record at the Mac's stable ("secured") address and keep it current with [`scripts/strato-dyndns.sh`](../scripts/strato-dyndns.sh):
 
@@ -350,13 +386,7 @@ Residential IPv6 prefixes change. When they do, the AAAA record points to a dead
 
 The router's IPv6 host exposure for TCP 80/443 must target the same device; most routers follow the device when the prefix changes.
 
-### IPv4 Visitors
-
-An AAAA-only domain is unreachable for IPv4-only networks (some mobile, hotel and corporate networks). Options, from least to most change:
-
-- Ask the ISP for Dual-Stack (a real public IPv4), then add an A record and forward TCP 80/443.
-- **Recommended:** Cloudflare Tunnel (free): no open ports, IPv4 + IPv6, works behind DS-Lite and follows prefix changes automatically. It runs as the optional `cloudflared` Compose service (`docker compose --profile tunnel up -d --build`). Setup, DNS migration and security notes: [`cloudflare-tunnel.md`](cloudflare-tunnel.md).
-- Use a small VPS with a public IPv4 as reverse proxy to the home server over IPv6 or a VPN.
+An AAAA-only domain is unreachable for IPv4-only networks (some mobile, hotel and corporate networks). Direct hosting can only fix that with a real public IPv4 from the ISP (Dual-Stack) or a VPS as relay. Cloudflare Tunnel solves it without either.
 
 Do not expose the editor through this public reverse proxy. Start it only locally with `npm run editor` and use `http://127.0.0.1:8081/editor/`.
 
@@ -415,7 +445,13 @@ For public tests without your own domain:
 Provider URL, Render, Vercel, Netlify, or tunnel
 ```
 
-For production with your own domain and server:
+For production with your own domain (recommended, also at home behind DS-Lite):
+
+```text
+Docker Compose + Cloudflare Tunnel
+```
+
+For a server with its own public IP, if you prefer direct connections:
 
 ```text
 Docker Compose + Caddy or Nginx/Certbot
@@ -466,13 +502,15 @@ CONTACT_ALLOW_WITHOUT_CAPTCHA=1
 
 Use that opt-out only when another layer, such as a CDN/WAF rule or host-level abuse protection, provides equivalent form protection.
 
-hCaptcha mode:
+hCaptcha mode (free account at hcaptcha.com: add a site with your domain to get the **site key**; the **secret** is under account settings):
 
 ```env
 CAPTCHA_PROVIDER=hcaptcha
 HCAPTCHA_SITE_KEY=your-public-site-key
 HCAPTCHA_SECRET=your-private-secret
 ```
+
+The server verifies tokens against the configured site key, so the hCaptcha site must list the domain the form runs on.
 
 mCaptcha mode:
 

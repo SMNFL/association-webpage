@@ -1,221 +1,279 @@
 # Cloudflare Tunnel
 
-Cloudflare Tunnel publishes the website without a public IPv4 address, router port forwarding or a static IP. A small `cloudflared` container opens an **outbound** encrypted connection to Cloudflare; visitors connect to Cloudflare over IPv4 or IPv6, and Cloudflare forwards their requests through that connection. This is the recommended setup for home hosting behind DS-Lite (no public IPv4) or a changing IPv6 prefix.
+The recommended production setup. A `cloudflared` container opens an **outbound** encrypted connection to Cloudflare; visitors connect to Cloudflare over IPv4 or IPv6, and Cloudflare forwards their requests through that connection. No public IPv4, port forwarding, static IP or reverse proxy on the server is needed, so it works behind DS-Lite and with changing IPv6 prefixes. Everything uses the Cloudflare **Free** plan.
 
-Everything here uses the Cloudflare **Free** plan.
+## What It Replaces
+
+| Before (direct hosting) | With Cloudflare Tunnel |
+|---|---|
+| Caddy/Nginx on the host for TLS, compression, redirects | Cloudflare edge (Universal SSL, automatic compression, Redirect Rule, "Always Use HTTPS") |
+| Let's Encrypt certificate on the server | Cloudflare edge certificate, renewed by Cloudflare |
+| Router port forwarding / IPv6 host exposure for TCP 80/443 | None: the connection is outbound only |
+| DNS at the registrar + DynDNS script for changing IPv6 prefixes | DNS at Cloudflare; the tunnel record never changes |
+| IPv6-only reachability behind DS-Lite | IPv4 and IPv6 |
+
+`deploy/Caddyfile` and `scripts/strato-dyndns.sh` remain in the repository only for the [direct-hosting alternative](SELF_HOSTING.md#alternative-direct-hosting-with-a-reverse-proxy).
 
 ## Architecture
 
 ```text
 Visitor (IPv4 or IPv6)
-  ↓ HTTPS (Cloudflare edge certificate)
-Cloudflare edge: TLS termination, compression, www redirect
-  ↓ encrypted tunnel, opened outbound by cloudflared (no inbound ports)
-cloudflared container (Compose profile "tunnel", network "edge" only)
-  ↓ HTTP inside the isolated Docker network "edge"
-website container :8080
+  ↓ HTTPS, Cloudflare edge certificate
+Cloudflare edge: TLS termination, HTTP→HTTPS, www→apex, compression
+  ↓ encrypted tunnel (QUIC or HTTP/2), opened outbound by cloudflared
+cloudflared container   (Compose profile "tunnel", network "edge" only)
+  ↓ plain HTTP inside the isolated Docker network "edge"
+website container :8080 (also on 127.0.0.1:8080 for local checks)
 ```
 
-What stays the same:
+- `docker compose up -d --build website` still starts only the website; the tunnel is opt-in via `--profile tunnel`.
+- The editor runs on its own `editor` network and mCaptcha on `default`; neither is reachable from the tunnel.
 
-- `docker compose up -d --build website` still starts only the website. The tunnel is opt-in via `--profile tunnel`.
-- The website is still published on `127.0.0.1:8080` for local checks and an optional host reverse proxy (Caddy). Nothing listens on the LAN or the internet.
-- The editor and mCaptcha are not on the `edge` network; `cloudflared` cannot reach them.
+## Short Version
 
-What changes after the switch:
+For readers who know Cloudflare. Each step is detailed below.
 
-- Public traffic no longer reaches Caddy or the router. Port exposure and DynDNS become unnecessary (see [Step 8](#step-8-retire-the-direct-ipv6-path)).
-- Cloudflare provides compression, the www redirect and the public TLS certificate.
+1. Cloudflare: add the domain (Free), recreate **all** DNS records (especially mail) as *DNS only*, delete the old `A`/`AAAA` web records.
+2. Registrar: disable DNSSEC, set the two Cloudflare nameservers.
+3. Zero Trust → Tunnels → create a tunnel; save **only the token** to `secrets/cloudflare-tunnel-token`.
+4. Tunnel routes: `example.org` and `www.example.org` → `http://website:8080`; DNS records become type *Tunnel* (proxied).
+5. Dashboard: Redirect Rule www→root, Always Use HTTPS, Minimum TLS 1.2.
+6. `TRUST_PROXY=private` in `.env`, then `docker compose --profile tunnel up -d --build`.
+7. Retire the direct path: router exposure, Caddy, DynDNS.
 
 ## Prerequisites
 
-- A free Cloudflare account with two-factor authentication enabled.
-- Access to the domain registrar (STRATO) to change nameservers.
-- Docker Desktop running the website as described in [`SELF_HOSTING.md`](SELF_HOSTING.md).
-- `TRUST_PROXY=private` in `.env` (cloudflared reaches the app from a private Docker address and forwards the visitor IP in `X-Forwarded-For`).
+- A free Cloudflare account with two-factor authentication.
+- Access to the domain registrar to change nameservers (STRATO: possible on domain packages with "external nameservers").
+- Docker (Docker Desktop on macOS) and the website configured per [`deployment.md`](deployment.md#new-deployment-checklist).
+- `.env`: `TRUST_PROXY=private` and `SITE_URL=https://example.org`.
 
-## Step 1: Add the domain to Cloudflare (manual, dashboard)
+## Step 1: Add The Domain And Copy DNS Records
 
-1. Cloudflare dashboard → **Add a domain** → enter the apex domain (e.g. `example.org`) → select the **Free** plan.
-2. Cloudflare imports the existing DNS records. **Compare them with the registrar's DNS before continuing.** Missing records break other services:
-   - `MX`, `TXT` (SPF, DKIM, DMARC, domain verification), `autoconfig`/`autodiscover` for email hosted at the registrar.
-   - Any other subdomains you use.
-3. Delete the imported `A`/`AAAA` records for the apex and `www` (they point at the home connection). The tunnel creates its own records in Step 4, and Cloudflare refuses to create a hostname that already has a record.
-4. Note the two nameservers Cloudflare assigns (e.g. `xxx.ns.cloudflare.com`).
-
-## Step 2: Switch the nameservers at the registrar (manual, requires authorization)
-
-This moves DNS authority for the whole domain to Cloudflare. Plan it for a quiet time.
-
-1. If DNSSEC is enabled at the registrar, **disable it first** and wait for it to expire (otherwise the domain stops resolving). Re-enable it later in Cloudflare (DNS → Settings → DNSSEC) and enter the DS record at the registrar.
-2. STRATO: customer login → **Domains → Domainverwaltung** → domain → **Nameserver** → use your own nameservers → enter the two Cloudflare nameservers. Menu names can differ slightly per package.
-3. Wait until Cloudflare shows the domain as **Active** (minutes to 24 hours). Check:
+1. Cloudflare dashboard → **Add a domain** → apex domain → **Free** plan.
+2. Cloudflare imports some records automatically, but often not all. Before switching nameservers, list what the registrar serves today and recreate everything that is missing. Ask the current nameserver directly:
 
    ```bash
-   dig +short NS example.org
+   NS=$(dig +short NS example.org | head -1)
    ```
 
-Until the tunnel is running (Step 6), the website is unreachable through Cloudflare, so do Steps 3–6 right after activation, or prepare them before switching the nameservers.
+   ```bash
+   for n in example.org www.example.org autoconfig.example.org _dmarc.example.org _autodiscover._tcp.example.org; do for t in A AAAA CNAME MX TXT SRV; do dig +short $t $n @$NS | sed "s|^|$n $t |"; done; done
+   ```
 
-## Step 3: Create the tunnel and store the token (manual, dashboard)
+   DKIM records have provider-specific names (STRATO: `strato-dkim-0001._domainkey` / `strato-dkim-0002._domainkey`); query those too. Typical STRATO mail records:
 
-1. Cloudflare dashboard → **Zero Trust** (free plan; choose the Free tier if asked) → **Networks → Tunnels** → **Create a tunnel** → **Cloudflared**.
-2. Name it, e.g. `website`.
-3. Under "Install and run a connector", choose **Docker**. The shown command ends with `--token eyJ...`. Copy **only the token** (the long `eyJ...` string). Do not run the shown command.
-4. Store it as a Docker secret file (owner-only, never committed; `secrets/` is ignored by Git, Docker builds and the release check). Copy the token to the clipboard, then:
+   | Type | Name | Content |
+   |---|---|---|
+   | MX | `@` | `smtpin.rzone.de`, priority 5 |
+   | TXT | `strato-dkim-000X._domainkey` | `v=DKIM1; k=rsa; p=…` |
+   | TXT | `_dmarc` | `v=DMARC1;p=reject;` (with `p=reject`, missing DKIM means rejected mail) |
+   | CNAME | `autoconfig` | `autoconfigure.strato.de` |
+   | SRV | `_autodiscover._tcp` | `0 100 443 autoconfigure.strato.de` |
+
+   Many records at once: write them as a BIND zone file and use **DNS → Records → Import and Export → Import**, with "Proxy imported DNS records" unchecked.
+3. All mail and other non-web records: **DNS only** (grey cloud).
+4. Delete the `A`/`AAAA` records for the apex and `www`. They point at the home connection, and the tunnel creates its own records in Step 4. Under DS-Lite an `A` record would point at a shared provider address that is not reachable.
+5. Note the two assigned nameservers (e.g. `name1.ns.cloudflare.com`, `name2.ns.cloudflare.com`).
+
+## Step 2: Switch The Nameservers (requires registrar authorization)
+
+This moves DNS authority for the whole domain to Cloudflare. It is not an `NS` record inside the zone; it changes the domain's delegation.
+
+1. If DNSSEC is enabled at the registrar, **disable it first** and wait for it to expire, otherwise the domain stops resolving. Re-enable it later in Cloudflare (DNS → Settings → DNSSEC) and enter the DS record at the registrar.
+2. STRATO: **Domains → Domainverwaltung** → domain → **Nameserver** → use your own/external nameservers → enter both Cloudflare nameservers. Menu names vary slightly per package.
+3. Wait until the registry delegates to Cloudflare (minutes to a day) and Cloudflare shows the domain as **Active**:
+
+   ```bash
+   dig +short NS example.org @a.nic.de
+   ```
+
+   Use the registry of your TLD (`a.nic.de` for `.de`); public resolvers may show the old nameservers until their cache expires.
+
+You can verify the new records at Cloudflare before the switch takes effect:
+
+```bash
+dig +short MX example.org @<name1>.ns.cloudflare.com
+```
+
+## Step 3: Create The Tunnel And Store The Token
+
+1. Cloudflare dashboard → **Zero Trust** (choose the Free tier if asked) → **Networks → Tunnels** → **Create a tunnel** → **Cloudflared** → name it, e.g. `website`.
+2. Under "Install and run a connector", choose **Docker**. The page shows a full command:
+
+   ```text
+   docker run cloudflare/cloudflared:latest tunnel --no-autoupdate run --token eyJhIjoi…
+   ```
+
+   Do **not** run that command; the Compose service runs the same tunnel pinned, hardened and on the right network. You need only the token, the long string starting with `eyJhIjoi` (about 180+ characters).
+
+   Two other IDs look similar and do **not** work as token:
+   - **Tunnel ID**: 36-character UUID, shown in the tunnel list.
+   - **Connector ID**: logged by cloudflared as "Generated Connector ID", changes per container.
+3. Copy the full command to the clipboard and extract the token into the secret file (keeps it out of shell history):
 
    ```bash
    mkdir -p secrets && chmod 700 secrets
    ```
 
    ```bash
-   (umask 077 && pbpaste | tr -d '[:space:]' > secrets/cloudflare-tunnel-token)
+   (umask 077 && pbpaste | grep -oE 'eyJ[A-Za-z0-9+/=_-]{50,}' | head -1 | tr -d '\n' > secrets/cloudflare-tunnel-token)
    ```
+
+   Check it (must print `eyJhIjoi` and a length above 150):
 
    ```bash
-   wc -c secrets/cloudflare-tunnel-token
+   head -c 8 secrets/cloudflare-tunnel-token; echo; wc -c < secrets/cloudflare-tunnel-token
    ```
 
-   The token is a few hundred characters long. Using the clipboard keeps it out of your shell history.
+   Then copy something else to clear the clipboard.
 
    On Linux hosts the container user (`65532`) must be able to read the file: `sudo chown 65532:65532 secrets/cloudflare-tunnel-token`. Docker Desktop on macOS needs no change.
 
-## Step 4: Route the hostnames (manual, dashboard)
+## Step 4: Route The Hostnames And Point DNS At The Tunnel
 
-In the tunnel → **Public Hostname** (or **Published application routes**) → add:
+1. Tunnel → **Public Hostname** / **Published application routes** → add two routes:
 
-| Subdomain | Domain | Type | URL |
-|---|---|---|---|
-| *(empty)* | `example.org` | HTTP | `website:8080` |
-| `www` | `example.org` | HTTP | `website:8080` |
+   | Hostname | Service URL |
+   |---|---|
+   | `example.org` | `http://website:8080` |
+   | `www.example.org` | `http://website:8080` |
 
-- `website` is the Compose service name, resolved inside the `edge` network. Do **not** use `localhost` or `127.0.0.1`: inside the `cloudflared` container that is the container itself.
-- Use type **HTTP**. The hop from `cloudflared` to the website stays inside the isolated Docker network; TLS to the outside is handled by the tunnel.
-- Leave "Additional application settings" at their defaults. Do not enable "No TLS Verify" or HTTP Host header overrides; the app checks that `Origin` matches `Host` for form submissions.
-- Never add routes to the editor (`editor`, port 8081) or mCaptcha. They are not on the `edge` network and must stay local-only.
-- Requests for any other hostname hit the tunnel's catch-all rule and get a 404.
+   - The field needs the full URL including `http://`.
+   - Use `website` (the Compose service name), never `localhost` or `127.0.0.1`: inside the `cloudflared` container that is the container itself (Cloudflare returns 502).
+   - Use `http`, not `https`: the app speaks plain HTTP inside the isolated network; the tunnel encrypts the outside connection.
+   - Leave "Additional application settings" at the defaults. No HTTP Host header override (the contact form checks that `Origin` matches `Host`), no "No TLS Verify".
+   - Routes are matched top to bottom. Delete wrong or duplicate routes (row menu ⋯ → Delete) so only these two remain, plus the automatic catch-all `http_status:404`.
+   - Never add routes to the editor or mCaptcha.
+2. Check **DNS → Records**: apex and `www` must be type **Tunnel** (proxied), linked to your tunnel. Cloudflare creates them only when no record exists for that name. If old `AAAA`/`CNAME` records remain, delete them and save the routes again, or create them by hand:
 
-Cloudflare creates proxied `CNAME` records pointing to `<tunnel-id>.cfargotunnel.com`.
+   | Type | Name | Target | Proxy |
+   |---|---|---|---|
+   | CNAME | `@` | `<tunnel-id>.cfargotunnel.com` | Proxied |
+   | CNAME | `www` | `<tunnel-id>.cfargotunnel.com` | Proxied |
 
-## Step 5: Cloudflare settings (manual, dashboard, all free)
+   The tunnel ID (not the connector ID) is in the tunnel list, or in the token:
 
-- **www → apex redirect:** Rules → Redirect Rules → template **Redirect from WWW to root** (301, preserve path and query). Keeps one canonical host matching `SITE_URL`.
-- **SSL/TLS → Edge Certificates:** Always Use HTTPS **on**, Minimum TLS Version **1.2**, Automatic HTTPS Rewrites **on**. HSTS is already sent by the app in production; you do not need to enable it in Cloudflare.
-- **SSL/TLS → Overview:** encryption mode does not affect tunnel traffic; leave it at **Full**.
-- Compression (gzip/Brotli/zstd) is automatic.
-- Optional: Security → Bots → Bot Fight Mode. Test the contact form afterwards; hCaptcha still runs as before.
+   ```bash
+   base64 -d < secrets/cloudflare-tunnel-token | node -e 'process.stdin.on("data",d=>console.log(JSON.parse(d).t+".cfargotunnel.com"))'
+   ```
 
-Leave caching at the defaults. Cloudflare caches static files by extension and respects the app's `Cache-Control` headers (HTML, data and JS revalidate; media and fonts for 7 days). It does not cache `/api/*` JSON or form posts.
+   Do both changes in one go; between deleting the old records and adding the tunnel records the site is briefly unreachable.
 
-## Step 6: Start and verify
+## Step 5: Cloudflare Settings (Free)
 
-`.env` must contain `TRUST_PROXY=private` and `SITE_URL=https://example.org` (unchanged). Then:
+In the dashboard, open the **domain** (not Zero Trust):
+
+- **Rules → Redirect Rules** → template **Redirect from WWW to root** (301, preserve query string).
+- **SSL/TLS → Edge Certificates**: **Always Use HTTPS** on, **Minimum TLS Version** 1.2, **Automatic HTTPS Rewrites** on. Settings save immediately. HSTS is already sent by the app.
+- **SSL/TLS → Overview**: the encryption mode does not affect tunnel traffic; leave it at *Full*.
+- Compression is automatic. Caching defaults are fine: Cloudflare respects the app's `Cache-Control` and does not cache `/api/*` or form posts.
+
+## Step 6: Start And Verify
 
 ```bash
 docker compose --profile tunnel up -d --build
 ```
 
-This rebuilds and restarts `website` with its health check and starts `cloudflared` once the website is healthy. Check:
+This rebuilds and restarts `website` with its health check and starts `cloudflared` once the website is healthy.
 
 ```bash
 docker compose --profile tunnel ps
 ```
 
-Both services should show `healthy`.
+Both services must be `healthy`.
 
 ```bash
-docker compose logs --tail 20 cloudflared
+docker compose logs --tail 30 cloudflared | grep -E "Registered tunnel connection|Updated to new configuration|ERR"
 ```
 
-Look for four lines with `Registered tunnel connection`. In the dashboard the tunnel shows **Healthy**.
+Expect four `Registered tunnel connection` lines and an `Updated to new configuration` line listing your two routes with `http://website:8080`.
 
-From outside, test both IP families:
+From outside, pin the request to a Cloudflare edge IP. Your router's DNS cache may still return old records for a while; check what Cloudflare serves with `dig +short A example.org @<name1>.ns.cloudflare.com`:
 
 ```bash
-curl -4 -sI https://example.org/ | grep -iE "^HTTP|server|cf-ray"
+curl -sI --resolve example.org:443:188.114.96.3 https://example.org/ | grep -iE "^HTTP|^server|^via"
 ```
 
-```bash
-curl -6 -sI https://example.org/ | grep -iE "^HTTP|server|cf-ray"
-```
-
-Expect `HTTP/2 200`, `server: cloudflare` and a `cf-ray` header. Also check:
+Expect `HTTP/2 200` and `server: cloudflare`, and **no** `via: … Caddy` (that would mean traffic still bypasses the tunnel). Also check the redirects:
 
 ```bash
-curl -sI https://www.example.org/pages/privacy.html | grep -iE "^HTTP|location"
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" --resolve example.org:80:188.114.96.3 http://example.org/
 ```
 
 ```bash
-curl -sI -H "Accept-Encoding: gzip" https://example.org/styles/main.css | grep -i content-encoding
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" --resolve www.example.org:443:188.114.96.3 https://www.example.org/
 ```
 
-Finally submit the contact form once from a browser. The server log should show the visitor's real IP in security events, not a Docker address.
+Both must return `301` (to `https://` and to the apex). Finally submit the contact form once: the security log (`docker compose logs website`) must show the visitor's public IP, not a Docker address.
 
-Later restarts and deploys use the same profile, so the tunnel comes back with the website:
+To flush DNS caches on the Mac after the switch:
 
 ```bash
-docker compose --profile tunnel up -d --build
+sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
 ```
 
-## Step 7: Keep it running
+## Step 7: Operation
 
-- `restart: unless-stopped` restarts both containers after crashes and Docker Desktop restarts. Enable Docker Desktop → Settings → General → **Start Docker Desktop when you sign in**, so the site comes back after a Mac reboot (Docker Desktop on macOS starts only after login).
-- Update `cloudflared` deliberately. The image is pinned by tag **and** digest in `compose.yaml`; update both together, then restart:
+- Deploy every change with `docker compose --profile tunnel up -d --build`; plain `docker compose up` without the profile would not keep the tunnel managed.
+- `restart: unless-stopped` restarts both containers after crashes. Enable Docker Desktop → Settings → General → **Start Docker Desktop when you sign in**, so the site comes back after a reboot (Docker Desktop on macOS starts only after login).
+- Update `cloudflared` deliberately. The image is pinned by tag and digest in `compose.yaml`; update both together:
 
   ```bash
   docker buildx imagetools inspect cloudflare/cloudflared:<version> | grep -m1 Digest
   ```
 
-  ```bash
-  docker compose --profile tunnel up -d
-  ```
-
   Cloudflare supports connector versions for about a year.
-- `docker compose config` prints the resolved `.env` values, including SMTP, CAPTCHA and editor secrets, in plain text. Do not paste its output into issues or chats; use `docker compose config --quiet` to validate.
+- Stop only the tunnel: `docker compose stop cloudflared`. The website keeps running locally.
+- `docker compose config` prints resolved `.env` secrets in plain text. Validate with `docker compose config --quiet` and do not share its output.
 
-## Step 8: Retire the direct IPv6 path
+## Step 8: Retire The Direct Path
 
-After the tunnel works from IPv4 and IPv6 for a few days:
+After the tunnel has worked over IPv4 and IPv6 for a few days:
 
-1. Remove the router's IPv6 host exposure for TCP 80/443. Nothing needs inbound connections anymore, which closes the home network to direct scans.
-2. Stop the public Caddy site. Its Let's Encrypt renewals will fail anyway, because the domain now resolves to Cloudflare:
+1. Router: remove the IPv6 host exposure / port forwarding for TCP 80/443. Nothing needs inbound connections anymore.
+2. Stop Caddy; its Let's Encrypt renewals fail now that the domain resolves to Cloudflare:
 
    ```bash
    sudo brew services stop caddy
    ```
 
-   Keep `deploy/Caddyfile` for a rollback or local use.
-3. Stop the DynDNS updater (`scripts/strato-dyndns.sh`, LaunchAgent if installed). The registrar's DNS is no longer authoritative.
+3. Stop the DynDNS updater (unload its LaunchAgent if installed). The registrar's DNS is no longer authoritative, so updates there have no effect.
+4. Privacy policy: name Cloudflare as processor (see [Security Considerations](#security-considerations)).
 
 ## Rollback
 
-- **Quick:** in Cloudflare DNS, replace the tunnel CNAMEs for apex and `www` with an `AAAA` record to the Mac's stable IPv6, **DNS only** (grey cloud). Restore router exposure and start Caddy. IPv4-only visitors lose access again.
-- **Full:** set the registrar's nameservers back to the defaults and restore the DNS records there.
-- `docker compose stop cloudflared` stops the tunnel without touching the website.
+- **Quick:** in Cloudflare DNS replace the two Tunnel records with an `AAAA` record to the server's stable IPv6, **DNS only**, restore the router exposure and start Caddy. IPv4-only visitors lose access again.
+- **Full:** set the registrar's default nameservers again and recreate the records there.
 
 ## Security Considerations
 
-- **TLS termination at Cloudflare.** Visitors' HTTPS ends at Cloudflare's edge, where requests are decrypted, inspected (WAF, caching, compression) and re-encrypted into the tunnel. Cloudflare can therefore read all traffic, including contact messages and membership applications with IBAN/BIC. Treat Cloudflare as a data processor: accept Cloudflare's data processing addendum (self-serve, free) and name Cloudflare in the privacy policy (purpose: hosting/CDN/security, data transfer to the US under the EU-US Data Privacy Framework).
-- **Tunnel transport.** `cloudflared` authenticates with the token and connects outbound over TLS (QUIC or HTTP/2). There are no inbound ports, so the router and the Mac accept no connections from the internet.
-- **Last hop.** `cloudflared` talks plain HTTP to `website:8080` inside the `edge` Docker network. Only these two containers are on that network; the hop never leaves the Mac.
-- **The token is the tunnel.** Anyone with it can run a connector that receives your site's traffic. It lives only in `secrets/cloudflare-tunnel-token` (owner-only, ignored by Git and Docker builds, passed as a Docker secret file, not as an environment variable, so it does not show in `docker inspect`). If it may have leaked: tunnel → **Refresh token** in the dashboard, replace the file, restart `cloudflared`.
-- **Least privilege.** `cloudflared` runs as non-root with a read-only filesystem, no Linux capabilities and `no-new-privileges`, publishes no ports, keeps metrics on `127.0.0.1` inside its container, and has auto-update and remote diagnostics disabled. The website also drops all capabilities. The editor runs on its own `editor` network, so neither the tunnel nor the website container can reach it; mCaptcha is not on the `edge` network either. The editor additionally rejects any request with forwarding headers.
-- **Real visitor IP.** Cloudflare puts the visitor IP in `X-Forwarded-For`. With `TRUST_PROXY=private` the app trusts only private hops (the `cloudflared` container) and takes the address Cloudflare appended, so a client-supplied `X-Forwarded-For` cannot spoof it. Rate limits and logs stay per visitor.
-- **Account security.** Whoever controls the Cloudflare account controls DNS, routes and certificates. Use 2FA and do not share the login.
-- **Limitations.** Free plan, no SLA; request bodies are limited to 100 MB (far above the app's limits); WebSockets work but are not used. Availability still depends on the Mac, Docker Desktop and the home connection being up.
+- **TLS terminates at Cloudflare.** Visitors' HTTPS ends at Cloudflare's edge, where requests are decrypted, processed and re-encrypted into the tunnel. Cloudflare can read all traffic, including contact messages and membership applications with IBAN/BIC. Treat Cloudflare as a data processor: accept Cloudflare's self-serve data processing addendum and name Cloudflare in the privacy policy (hosting/CDN/security; US transfer under the EU-US Data Privacy Framework).
+- **No inbound ports.** `cloudflared` authenticates with the token and connects outbound over TLS (QUIC, or HTTP/2 over TCP 443 as fallback). The router and the server accept no connections from the internet.
+- **Last hop.** `cloudflared` → `website:8080` is plain HTTP inside the `edge` Docker network, which contains only these two containers and never leaves the host.
+- **The token is the tunnel.** Anyone with it can run a connector that receives the site's traffic. It lives only in `secrets/cloudflare-tunnel-token` (owner-only; ignored by Git, Docker builds and the release check; mounted as a Docker secret, not an environment variable, so it does not appear in `docker inspect`). If it may have leaked: tunnel → **Refresh token**, replace the file, `docker compose --profile tunnel up -d`.
+- **Least privilege.** `cloudflared` runs as non-root with a read-only filesystem, no Linux capabilities, `no-new-privileges`, no published ports, metrics on `127.0.0.1` inside the container, and auto-update and remote diagnostics disabled. The website also drops all capabilities. The editor is on its own network and rejects requests with forwarding headers.
+- **Real visitor IP.** Cloudflare appends the visitor IP to `X-Forwarded-For`. With `TRUST_PROXY=private` the app trusts only the private `cloudflared` hop and uses the address Cloudflare appended; a client-supplied `X-Forwarded-For` cannot spoof it. Rate limits and logs stay per visitor.
+- **Account security.** Whoever controls the Cloudflare account controls DNS, routes and certificates: use 2FA and do not share the login.
+- **Limits.** Free plan without SLA; request bodies up to 100 MB (far above the app's limits). Availability still depends on the host, Docker and the home connection.
 
 ## Troubleshooting
 
 | Symptom | Cause and fix |
 |---|---|
-| `secret "cloudflare_tunnel_token" ... no such file` on start | Create `secrets/cloudflare-tunnel-token` (Step 3). |
-| `Provided Tunnel token is not valid` | The file contains more than the token (e.g. the whole install command, quotes). Store only the `eyJ...` string, without whitespace. |
-| `cloudflared` stays `starting`/`unhealthy`, logs show connection errors | Outbound UDP 7844 (QUIC) may be blocked; cloudflared falls back to HTTP/2 over TCP 443 automatically. Check `docker compose logs cloudflared`. |
-| Cloudflare error 1033 | No connector is running. `docker compose --profile tunnel up -d`, then check logs. |
-| 502 Bad Gateway | The route points to the wrong service (e.g. `localhost:8080`). Use `website:8080`. Check `docker compose ps` that `website` is healthy. |
-| `cloudflared` never starts, `dependency failed` | The website health check fails: `docker compose logs website`, `curl http://127.0.0.1:8080/healthz`. |
-| Contact form: "Request verification failed" (403) | `Origin` and `Host` differ, e.g. a Host header override in the tunnel route, or the form was opened on `www` without the redirect. Remove overrides; enable the www redirect. |
-| All visitors share one IP in logs / contact form limited for everyone | `TRUST_PROXY` is not `private`. Fix `.env`, then rebuild `website`. |
-| Domain stopped resolving after the nameserver switch | DNSSEC still active at the registrar, or records missing in Cloudflare. Disable DNSSEC at the registrar; compare DNS records (Step 1). |
-| Mail stopped working | `MX`/`TXT` records were not imported. Add them in Cloudflare DNS as **DNS only**. |
+| `secret "cloudflare_tunnel_token" … no such file` | Create `secrets/cloudflare-tunnel-token` (Step 3). |
+| `Provided Tunnel token is not valid`, container restarting | The file holds the tunnel ID, connector ID or the whole command. Store only the `eyJhIjoi…` string (Step 3). |
+| Log: `No ingress rules were defined` | Routes are missing (Step 4). They reach the running connector automatically. |
+| Responses still contain `via: … Caddy` | DNS still points at the old origin: replace the apex/`www` records with Tunnel records (Step 4). |
+| 502 Bad Gateway | Route target is wrong (`localhost`, `https://`). Use `http://website:8080`; check `website` is healthy. |
+| "Invalid service URL format" in the dashboard | Enter the full URL: `http://website:8080`. |
+| Cloudflare error 1033 | No connector running: `docker compose --profile tunnel up -d`, check logs. |
+| `cloudflared` never starts, `dependency failed` | Website health check fails: `docker compose logs website`, `curl http://127.0.0.1:8080/healthz`. |
+| Contact form "Request verification failed" (403) | `Origin` and `Host` differ: remove Host header overrides in the route; make sure the www redirect is active. |
+| All visitors share one IP in logs | `TRUST_PROXY` is not `private`; fix `.env` and redeploy. |
+| `http://` serves the page unencrypted | Enable **Always Use HTTPS** (Step 5). |
+| `www` serves the page instead of redirecting | Add the Redirect Rule (Step 5). |
+| Domain stops resolving after the nameserver switch | DNSSEC still active at the registrar, or records missing in Cloudflare (Steps 1–2). |
+| Mail stops working | MX, DKIM, DMARC or autodiscover records missing in Cloudflare; add them as DNS only (Step 1). |
+| Local tests still hit the old address | Router/Mac DNS cache; flush the Mac cache, wait for the router TTL, or test with `--resolve` (Step 6). |
 | Caddy logs certificate renewal errors | Expected after the switch; stop Caddy (Step 8). |

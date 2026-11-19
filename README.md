@@ -86,79 +86,35 @@ The public site navigation stays visible at the top and automatically collapses 
 
 ## Production
 
-```bash
-npm install --omit=dev
-npm run start
+Recommended: **Docker Compose + Cloudflare Tunnel** (free). It needs no public IPv4, no port forwarding, no static IP and no reverse proxy on the server, so it works on a home connection such as DS-Lite. Cloudflare handles TLS, compression and the HTTP→HTTPS / `www`→apex redirects; a small `cloudflared` container connects outbound and reaches only the website.
+
+```text
+Visitor ──HTTPS──▶ Cloudflare ──outbound tunnel──▶ cloudflared ──HTTP (isolated Docker network)──▶ website:8080
 ```
 
-Or run it containerized on your own server or Raspberry Pi:
+Short version (full guide: [`docs/cloudflare-tunnel.md`](docs/cloudflare-tunnel.md)):
 
-```bash
-docker compose up -d --build
-```
+1. `cp .env.example .env` and fill it in. Set `TRUST_PROXY=private`, `SITE_URL`, SMTP and CAPTCHA.
+2. Add the domain to Cloudflare (Free plan), copy all existing DNS records (especially mail), and switch the nameservers at the registrar.
+3. Create a tunnel in Cloudflare Zero Trust and store **only the token** (`eyJ…`) in `secrets/cloudflare-tunnel-token`.
+4. Add the tunnel routes `example.org` and `www.example.org` → `http://website:8080`.
+5. Start and deploy with:
 
-The Compose service binds to `127.0.0.1:8080` by default and belongs behind an HTTPS reverse proxy.
+   ```bash
+   docker compose --profile tunnel up -d --build
+   ```
 
-For home hosting without a public IPv4 or port forwarding (e.g. DS-Lite), publish it through the optional Cloudflare Tunnel service instead. The tunnel token is a Docker secret in `secrets/cloudflare-tunnel-token`, never an environment variable:
+Without a tunnel (server with a public IP), run `docker compose up -d --build website` behind Caddy or Nginx; see [`docs/SELF_HOSTING.md`](docs/SELF_HOSTING.md#alternative-direct-hosting-with-a-reverse-proxy). Static hosts are covered in [`docs/deployment.md`](docs/deployment.md#static-hosts).
 
-```bash
-docker compose --profile tunnel up -d --build
-```
-
-Setup, DNS migration and security notes: [`docs/cloudflare-tunnel.md`](docs/cloudflare-tunnel.md).
-
-Required environment variables:
-
-```bash
-NODE_ENV=production
-# Docker behind Caddy/Nginx on the same host: private. Node directly on the host: loopback.
-TRUST_PROXY=private
-SITE_URL=https://example.org
-INSTAGRAM_USERNAME=example
-SMTP_HOST=smtp.example.org
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_REQUIRE_TLS=true
-SMTP_AUTH_METHOD=LOGIN
-SMTP_USER=mail-user
-SMTP_PASS=mail-password
-SMTP_FROM=website@example.org
-CONTACT_TO=contact@example.org
-CAPTCHA_PROVIDER=hcaptcha
-HCAPTCHA_SITE_KEY=public-site-key
-HCAPTCHA_SECRET=private-secret
-CONTACT_ALLOW_WITHOUT_CAPTCHA=0
-```
-
-Optional:
-
-```bash
-PORT=8080
-```
-
-Port `587` uses STARTTLS. `SMTP_SECURE=true` is only correct for port `465`.
-
-For Gmail, `SMTP_PASS` must be a Google App Password, not the normal Google password. Gmail app passwords copied with spaces are normalized before SMTP login.
-
-If another SMTP provider rejects correct credentials with `AUTH PLAIN`, set `SMTP_AUTH_METHOD=LOGIN`. Without a value, Nodemailer chooses automatically.
-
-Test SMTP access in isolation:
-
-```bash
-npm run smtp:check
-```
-
-CAPTCHA modes:
-
-- No CAPTCHA: leave CAPTCHA env vars empty. In production, this is allowed for SMTP contact mail only when `CONTACT_ALLOW_WITHOUT_CAPTCHA=1` is set deliberately and upstream abuse protection exists.
-- hCaptcha: set `CAPTCHA_PROVIDER=hcaptcha`, `HCAPTCHA_SITE_KEY`, and `HCAPTCHA_SECRET`.
-- mCaptcha: set `CAPTCHA_PROVIDER=mcaptcha`, `MCAPTCHA_VERIFY_URL`, `MCAPTCHA_SITE_KEY`, `MCAPTCHA_SECRET`, and `MCAPTCHA_WIDGET_URL`. `MCAPTCHA_SCRIPT_URL` is optional and defaults to the published vanilla glue script.
-
-For Node/Docker deployments, configure CAPTCHA only in `.env`; the server injects the public browser config into `site*.json` and `pages*.json` at request time. For static-only hosting, configure the browser-visible `captcha` object in ignored local JSON because there is no server env at runtime.
-
-For Docker, the website still starts with `docker compose up -d --build`. An optional mCaptcha profile is available for local experiments with `docker compose --profile mcaptcha up -d mcaptcha mcaptcha-db`; production mCaptcha should run behind TLS through a reverse proxy, or use the official upstream mCaptcha Compose deployment and point this site at it.
+Configuration reference: [`.env.example`](.env.example), the setup-dependent values in [`docs/deployment.md`](docs/deployment.md#environment), SMTP and CAPTCHA in [`docs/SELF_HOSTING.md`](docs/SELF_HOSTING.md#smtp). Test SMTP separately with `npm run smtp:check`.
 
 ## Tests
+
+The E2E tests need a Playwright browser once per machine:
+
+```bash
+npx playwright install chromium
+```
 
 ```bash
 npm run release:check-public
