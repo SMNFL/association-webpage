@@ -3,8 +3,10 @@ import express from "express";
 import path from "node:path";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { loadMergedPublicJson, readPublicJsonSync } from "./public-data.js";
+import { createPublicPagesRouter } from "./public-pages.js";
 import { handleContactRequest } from "./api/contact.js";
-import { handleInstagramRequest } from "./api/instagram.js";
+import { createInstagramFeedService, createInstagramHandler, resolveInstagramUsername } from "./api/instagram.js";
 import { assertMailEnv, createTransportFromEnv } from "./mailer.js";
 import { createEditorRouter } from "./editor/router.js";
 import { assertEditorSecurityEnv } from "./security/editor-auth.js";
@@ -38,18 +40,11 @@ if (editorMode) {
 }
 
 app.get("/healthz", (req, res) => {
-  res.status(200).json({ ok: true, service: "website-template", timestamp: new Date().toISOString() });
+  res.set("Cache-Control", "no-store");
+  res.status(200).json({ ok: true });
 });
 
-app.get(["/pages/contact.html", "/pages/membership.html"], async (req, res, next) => {
-  try {
-    const filePath = path.join(publicDir, req.path);
-    const html = await readFile(filePath, "utf8");
-    res.type("html").send(enhanceFormPage(html));
-  } catch (error) {
-    next();
-  }
-});
+app.use(createPublicPagesRouter({ publicDir }));
 
 app.get([
   "/data/site.default.json",
@@ -73,7 +68,20 @@ const instagramLimiter = createMemoryRateLimiter({
   onLimit: (req) => securityLog("instagram_rate_limited", req)
 });
 
-app.get(["/api/instagram-feed", "/.netlify/functions/instagram-feed"], instagramLimiter, handleInstagramRequest);
+const instagramService = createInstagramFeedService({
+  username: resolveInstagramUsername({
+    env: process.env,
+    configs: [readPublicJsonSync(publicDir, "site.local.json"), readPublicJsonSync(publicDir, "site.default.json")]
+  }),
+  onRefreshError: (error) => console.error(JSON.stringify({
+    level: "error",
+    event: "instagram_feed_refresh_failed",
+    at: new Date().toISOString(),
+    message: String(error?.message || error).slice(0, 2000)
+  }))
+});
+
+app.get(["/api/instagram-feed", "/.netlify/functions/instagram-feed"], instagramLimiter, createInstagramHandler(instagramService));
 
 const contactLimiter = createMemoryRateLimiter({
   windowMs: 15 * 60 * 1000,
@@ -149,7 +157,11 @@ app.get("/js/contact.js", (req, res, next) => {
 });
 
 app.use(express.static(publicDir, {
-  extensions: ["html"]
+  extensions: ["html"],
+  setHeaders(res, filePath) {
+    const cacheControl = staticCacheControl(filePath);
+    if (cacheControl) res.set("Cache-Control", cacheControl);
+  }
 }));
 
 app.use((req, res) => {
@@ -157,6 +169,19 @@ app.use((req, res) => {
 });
 
 app.use(handleServerError);
+
+const MEDIA_CACHE_SECONDS = 7 * 24 * 60 * 60;
+const LONG_CACHE_PATH = /[\\/]assets[\\/](images|icons|fonts|docs|videos)[\\/]/;
+
+/**
+ * Media and fonts get a week of browser caching (uploads always get new file names).
+ * Code, styles, data and pages keep Express' default revalidation so edits show up immediately.
+ * @param {string} filePath
+ * @returns {string} Cache-Control value, or "" to keep the default
+ */
+export function staticCacheControl(filePath = "") {
+  return LONG_CACHE_PATH.test(filePath) ? `public, max-age=${MEDIA_CACHE_SECONDS}` : "";
+}
 
 export function sendFileOnlyNextOnError(res, next, filePath) {
   res.sendFile(filePath, (error) => {
@@ -291,24 +316,9 @@ function logCaptchaError(error, req, provider) {
   });
 }
 
-function enhanceFormPage(html) {
-  let output = html.replace(/<form\b([^>]*)>/i, (match, attrs) => {
-    let nextAttrs = attrs
-      .replace(/\saction=(["']).*?\1/i, "")
-      .replace(/\smethod=(["']).*?\1/i, "");
-    return `<form${nextAttrs} method="post" action="/api/contact">`;
-  });
-
-  if (!/\/js\/contact\.js/.test(output)) {
-    output = output.replace("</body>", '<script type="module" src="../js/contact.js"></script></body>');
-  }
-
-  return output;
-}
-
 async function loadFormMessages(pathname = "") {
   if (pathname.includes("membership")) {
-    const pages = await loadMergedPublicJson("pages.default.json", "pages.local.json");
+    const pages = await loadMergedPublicJson(publicDir, "pages.default.json", "pages.local.json");
     const form = {
       ...pages.membership?.form,
       ...pages.mitglied?.form
@@ -325,7 +335,7 @@ async function loadFormMessages(pathname = "") {
     };
   }
 
-  const site = await loadMergedPublicJson("site.default.json", "site.local.json");
+  const site = await loadMergedPublicJson(publicDir, "site.default.json", "site.local.json");
   const form = site.contactForm || {};
   return {
     htmlLang: site.language || "en",
@@ -337,33 +347,6 @@ async function loadFormMessages(pathname = "") {
     backLabel: form.backLabel || "Back to the form",
     backHref: "/pages/contact.html"
   };
-}
-
-async function loadMergedPublicJson(defaultName, localName) {
-  const base = await readPublicJson(defaultName, {});
-  const local = await readPublicJson(localName, {});
-  return mergeData(base, local);
-}
-
-async function readPublicJson(name, fallback) {
-  try {
-    return JSON.parse(await readFile(path.join(publicDir, "data", name), "utf8"));
-  } catch (error) {
-    if (error.code === "ENOENT") return fallback;
-    throw error;
-  }
-}
-
-function mergeData(base, override) {
-  if (override === null || override === undefined) return base;
-  if (Array.isArray(base) || Array.isArray(override)) return override;
-  if (typeof base !== "object" || typeof override !== "object") return override;
-
-  const merged = { ...base };
-  Object.entries(override).forEach(([key, value]) => {
-    merged[key] = key in merged ? mergeData(merged[key], value) : value;
-  });
-  return merged;
 }
 
 function successHtml(messages = {}) {

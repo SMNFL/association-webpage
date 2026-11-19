@@ -225,7 +225,8 @@ test("runtime public config injects mCaptcha config from env into site and membe
       provider: "mcaptcha",
       siteKey: "public-mcaptcha-key",
       widgetUrl: "https://captcha.example.org/widget/site",
-      scriptUrl: "https://captcha.example.org/assets/mcaptcha.js"
+      scriptUrl: "https://captcha.example.org/assets/mcaptcha.js",
+      scriptIntegrity: ""
     };
     assert.deepEqual(
       applyRuntimePublicConfig({
@@ -404,3 +405,77 @@ function withCapturedConsoleWarn(calls, callback) {
     console.warn = previous;
   }
 }
+
+test("static cache policy caches media and fonts for a week but revalidates code and pages", async () => {
+  const { staticCacheControl } = await import("../../server/index.js");
+  assert.equal(staticCacheControl("/app/public/assets/images/events/a.jpg"), "public, max-age=604800");
+  assert.equal(staticCacheControl("/app/public/assets/fonts/sora.woff2"), "public, max-age=604800");
+  assert.equal(staticCacheControl("/app/public/js/main.js"), "");
+  assert.equal(staticCacheControl("/app/public/index.html"), "");
+});
+
+test("public routes: minimal health, favicon, robots, sitemap, metadata and no original images", async (t) => {
+  const { default: app } = await import("../../server/index.js");
+  const previousSiteUrl = process.env.SITE_URL;
+  process.env.SITE_URL = "https://example.org/";
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise((resolve) => server.once("listening", resolve));
+  t.after(() => {
+    server.close();
+    if (previousSiteUrl === undefined) delete process.env.SITE_URL;
+    else process.env.SITE_URL = previousSiteUrl;
+  });
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const health = await fetch(`${base}/healthz`);
+  assert.deepEqual(await health.json(), { ok: true });
+
+  const favicon = await fetch(`${base}/favicon.ico`, { redirect: "manual" });
+  assert.equal(favicon.status, 301);
+  assert.match(favicon.headers.get("location"), /^\/assets\/icons\/[a-z0-9._/-]+\.(png|svg|ico)$/i);
+
+  const robots = await (await fetch(`${base}/robots.txt`)).text();
+  assert.match(robots, /Sitemap: https:\/\/example.org\/sitemap.xml/);
+
+  const sitemap = await fetch(`${base}/sitemap.xml`);
+  assert.equal(sitemap.status, 200);
+  assert.match(sitemap.headers.get("content-type"), /xml/);
+  const sitemapXml = await sitemap.text();
+  assert.match(sitemapXml, /<loc>https:\/\/example.org\/<\/loc>/);
+  assert.match(sitemapXml, /<loc>https:\/\/example.org\/pages\/privacy.html<\/loc>/);
+  assert.doesNotMatch(sitemapXml, /event\.html<|culture-detail\.html</);
+
+  const home = await (await fetch(`${base}/`)).text();
+  assert.match(home, /<link rel="canonical" href="https:\/\/example.org\/">/);
+  assert.doesNotMatch(home, /<meta name="description" content="">/);
+
+  const contact = await (await fetch(`${base}/pages/contact.html`)).text();
+  assert.match(contact, /action="\/api\/contact"/);
+  assert.match(contact, /<link rel="canonical" href="https:\/\/example.org\/pages\/contact.html">/);
+
+  const original = await fetch(`${base}/assets/images/eventsArchive/any/original/001.jpg`);
+  assert.equal(original.status, 404);
+});
+
+test("original archive images stay blocked for encoded, case and top-level variants", async (t) => {
+  const { default: app } = await import("../../server/index.js");
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise((resolve) => server.once("listening", resolve));
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  for (const variant of [
+    "/assets/images/eventsArchive/x/%6Friginal/001.jpg",
+    "/assets/images/eventsArchive/x/Original/001.jpg",
+    "/assets/images/eventsArchive/x/original%2F001.jpg",
+    "/assets/images/original/001.jpg",
+    "/assets/images/eventsArchive/x/%E0%A4%A/original/001.jpg"
+  ]) {
+    const response = await fetch(`${base}${variant}`);
+    assert.equal(response.status, 404, variant);
+    assert.match(await response.text(), /Page not found/, variant);
+  }
+
+  const upperCaseContact = await (await fetch(`${base}/pages/Contact.html`)).text();
+  assert.match(upperCaseContact, /action="\/api\/contact"/);
+});
