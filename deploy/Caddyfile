@@ -1,0 +1,17 @@
+# Reference Caddy configuration for a home-hosted deployment.
+# Copy to the Caddy config location (Homebrew: /opt/homebrew/etc/Caddyfile), replace example.org,
+# then: caddy validate --config <file> && caddy reload --config <file>
+
+example.org {
+	# Compress HTML, CSS, JS and JSON responses (images are already compressed).
+	encode zstd gzip
+
+	# Caddy replaces any client-supplied X-Forwarded-For, so with TRUST_PROXY=private the app
+	# sees the real visitor IP for rate limits and logs.
+	reverse_proxy 127.0.0.1:8080
+}
+
+# One canonical host avoids duplicate content; keep in sync with SITE_URL.
+www.example.org {
+	redir https://example.org{uri} permanent
+}
