@@ -304,3 +304,24 @@ function createMailOptions() {
     from: "site@example.org"
   };
 }
+
+test("contact validation rejects email addresses that could rewrite the Reply-To recipient", () => {
+  const base = { name: "Test", message: "Hello", privacy: "on" };
+  for (const email of [
+    "victim@example.org(comment>@attacker.test",
+    "a<b@attacker.test",
+    "\"quoted;\"@example.org",
+    "a;b@example.org",
+    "a@example.org>"
+  ]) {
+    const result = validateContactPayload({ ...base, email });
+    assert.equal(result.errors.email, "Please enter a valid email address.", email);
+  }
+});
+
+test("contact validation still accepts ordinary email addresses", () => {
+  const base = { name: "Test", message: "Hello", privacy: "on" };
+  for (const email of ["erika.mustermann+web@example.org", "o'brien@mail.example.co.uk", "x_y-z@sub.example.de"]) {
+    assert.equal(validateContactPayload({ ...base, email }).errors.email, undefined, email);
+  }
+});

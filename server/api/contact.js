@@ -1,5 +1,8 @@
 const REQUIRED_FIELDS = ["name", "email", "message"];
 const MAX_RAW_FIELDS = 40;
+// Dot-atom local part and hostname only: no quotes, comments, angle brackets or separators,
+// because the address is used as the Reply-To header.
+const EMAIL_PATTERN = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
 const MAX_LENGTHS = {
   name: 160,
   email: 254,
@@ -87,7 +90,7 @@ export function validateContactPayload(payload = {}) {
     errors.form = "Too many form fields.";
   }
 
-  if (contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) {
+  if (contact.email && !EMAIL_PATTERN.test(contact.email)) {
     errors.email = "Please enter a valid email address.";
   }
 
