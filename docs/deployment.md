@@ -53,6 +53,16 @@ There is no package install and no build command for the static frontend. This k
 
 For Node self-hosting and local editor usage, run `npm install`. Packages remain isolated in the project's local `node_modules/` directory.
 
+## Home Hosting Through Cloudflare Tunnel
+
+Without a public IPv4 or port forwarding, run the optional `cloudflared` service next to the website. It connects outbound to Cloudflare, publishes no ports, and reaches only the website over an isolated Docker network:
+
+```bash
+docker compose --profile tunnel up -d --build
+```
+
+The token goes into `secrets/cloudflare-tunnel-token` (ignored by Git, Docker builds and the release check). Use the same command for every later deploy so the tunnel restarts with the website. Full guide: [`cloudflare-tunnel.md`](cloudflare-tunnel.md).
+
 ## Security
 
 Read [`SECURITY.md`](SECURITY.md) before deploying. If the host does not support Netlify-style `_headers`, configure equivalent CSP, MIME, frame, referrer and permissions headers in that host.

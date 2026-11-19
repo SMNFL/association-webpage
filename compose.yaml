@@ -4,8 +4,59 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    # Loopback only: reachable by a host reverse proxy (Caddy) and local tools, never from the LAN/internet.
     ports:
       - "127.0.0.1:8080:8080"
+    networks:
+      - default
+      - edge
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/healthz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+  # Cloudflare Tunnel: outbound-only connection to Cloudflare, no public ports, no router forwarding.
+  # Start with: docker compose --profile tunnel up -d   (setup: docs/cloudflare-tunnel.md)
+  cloudflared:
+    profiles:
+      - tunnel
+    # Tag for readability, multi-arch digest so the tag cannot silently change. Update both together.
+    image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
+    restart: unless-stopped
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --metrics
+      - 127.0.0.1:20241
+      - --management-diagnostics=false
+      - run
+    environment:
+      TUNNEL_TOKEN_FILE: /run/secrets/cloudflare_tunnel_token
+    secrets:
+      - cloudflare_tunnel_token
+    # Only the edge network: the tunnel can reach the website, not the editor or mCaptcha.
+    networks:
+      - edge
+    depends_on:
+      website:
+        condition: service_healthy
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:20241", "ready"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
 
   editor:
     profiles:
@@ -21,6 +72,10 @@ services:
       EDITOR_ALLOW_DOCKER_BRIDGE: "1"
     ports:
       - "127.0.0.1:${EDITOR_PORT:-8081}:8080"
+    # Own network: the public website (and anything that compromised it) cannot reach the editor,
+    # which trusts private Docker-bridge addresses for the loopback port mapping.
+    networks:
+      - editor
     volumes:
       - ./public:/app/public
       - ./ui-web-edit-tool:/app/ui-web-edit-tool:ro
@@ -51,6 +106,17 @@ services:
       DATABASE_URL: postgres://${MCAPTCHA_DB_USER:-mcaptcha}:${MCAPTCHA_DB_PASSWORD:-change-this-mcaptcha-password}@mcaptcha-db:5432/${MCAPTCHA_DB_NAME:-mcaptcha}
     ports:
       - "127.0.0.1:${MCAPTCHA_PORT:-7000}:7000"
+
+networks:
+  # Isolated network shared only by website and cloudflared.
+  edge:
+  # Local editor only; no other service joins it.
+  editor:
+
+secrets:
+  # One line containing the tunnel token from the Cloudflare dashboard. Never commit it (secrets/ is git-ignored).
+  cloudflare_tunnel_token:
+    file: ./secrets/cloudflare-tunnel-token
 
 volumes:
   mcaptcha-db:

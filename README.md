@@ -99,6 +99,14 @@ docker compose up -d --build
 
 The Compose service binds to `127.0.0.1:8080` by default and belongs behind an HTTPS reverse proxy.
 
+For home hosting without a public IPv4 or port forwarding (e.g. DS-Lite), publish it through the optional Cloudflare Tunnel service instead. The tunnel token is a Docker secret in `secrets/cloudflare-tunnel-token`, never an environment variable:
+
+```bash
+docker compose --profile tunnel up -d --build
+```
+
+Setup, DNS migration and security notes: [`docs/cloudflare-tunnel.md`](docs/cloudflare-tunnel.md).
+
 Required environment variables:
 
 ```bash

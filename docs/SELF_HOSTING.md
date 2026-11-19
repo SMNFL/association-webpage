@@ -355,7 +355,7 @@ The router's IPv6 host exposure for TCP 80/443 must target the same device; most
 An AAAA-only domain is unreachable for IPv4-only networks (some mobile, hotel and corporate networks). Options, from least to most change:
 
 - Ask the ISP for Dual-Stack (a real public IPv4), then add an A record and forward TCP 80/443.
-- Use Cloudflare Tunnel (`cloudflared`): no open ports, IPv4 + IPv6, and the tunnel follows prefix changes automatically. Point the tunnel at `http://127.0.0.1:8080` and keep `TRUST_PROXY=private`.
+- **Recommended:** Cloudflare Tunnel (free): no open ports, IPv4 + IPv6, works behind DS-Lite and follows prefix changes automatically. It runs as the optional `cloudflared` Compose service (`docker compose --profile tunnel up -d --build`). Setup, DNS migration and security notes: [`cloudflare-tunnel.md`](cloudflare-tunnel.md).
 - Use a small VPS with a public IPv4 as reverse proxy to the home server over IPv6 or a VPN.
 
 Do not expose the editor through this public reverse proxy. Start it only locally with `npm run editor` and use `http://127.0.0.1:8081/editor/`.
@@ -399,7 +399,7 @@ Or:
 cloudflared tunnel --url http://localhost:8080
 ```
 
-This creates a temporary public HTTPS URL that forwards to your local app. Do not use tunnels as a permanent production replacement.
+This creates a temporary public HTTPS URL that forwards to your local app, useful for quick tests. For a permanent production setup with your own domain, use a named Cloudflare Tunnel as described in [`cloudflare-tunnel.md`](cloudflare-tunnel.md).
 
 ## Recommendation
 

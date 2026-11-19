@@ -150,7 +150,8 @@ Update dependencies regularly and review security advisories. If a secret leaks,
 - The CSP keeps `img-src https:` because events may reference remote HTTPS images, and `style-src 'unsafe-inline'` because the ticket-shop embed and theme colors use inline styles. Scripts remain restricted to `'self'` plus the listed providers.
 - Membership applications include IBAN, BIC, date of birth and address and are delivered by email in plain text (only the raw dump is redacted). They stay in the receiving mailbox until someone deletes them; see [`membership.md`](membership.md) for the retention rule.
 - Outside `NODE_ENV=production` server errors include the underlying message. The Docker image always sets `NODE_ENV=production`; do not expose a development server publicly.
-- A home-hosted setup depends on the ISP: a changed IPv6 prefix takes the site offline until DNS follows (see the DynDNS section in [`SELF_HOSTING.md`](SELF_HOSTING.md)), and an IPv6-only DNS record is unreachable for IPv4-only visitors.
+- A home-hosted setup depends on the ISP: a changed IPv6 prefix takes the site offline until DNS follows (see the DynDNS section in [`SELF_HOSTING.md`](SELF_HOSTING.md)), and an IPv6-only DNS record is unreachable for IPv4-only visitors. Cloudflare Tunnel removes both problems and all inbound ports.
+- With Cloudflare Tunnel, TLS from visitors terminates at Cloudflare, which can read all traffic including form submissions; name Cloudflare as processor in the privacy policy. The tunnel token grants control of the connector: keep it only in `secrets/cloudflare-tunnel-token`, never in `.env`, Git or images, and refresh it in the dashboard if exposed. Never route the editor or mCaptcha through the tunnel. Details: [`cloudflare-tunnel.md`](cloudflare-tunnel.md#security-considerations).
 
 ## HTTPS And Header Verification
 
@@ -175,7 +176,7 @@ Also confirm HTTP redirects to HTTPS at the reverse proxy or hosting provider.
 
 - Rotate editor password/session secret with `npm run security:setup-editor`.
 - Rotate any SMTP, hCaptcha, mCaptcha, or editor secret that may have been shared outside the host.
-- Keep `.env`, `.editor-backups/`, local JSON overrides, generated pages and private media out of Git and public static hosting.
+- Keep `.env`, `.env.dyndns`, `secrets/`, `.editor-backups/`, local JSON overrides, generated pages and private media out of Git and public static hosting.
 - Set `NODE_ENV=production`, `TRUST_PROXY` (usually `private` for Docker behind Caddy), `SITE_URL`, SMTP variables, and one CAPTCHA mode (`none`, `hcaptcha`, or `mcaptcha`).
 - Run `npm audit --omit=dev` and fix advisories before each release.
 - Keep `EDITOR_MODE` off for the public website. If the editor is started separately, set `EDITOR_LOCAL_ONLY=true`.

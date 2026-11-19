@@ -4,6 +4,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+!.env.dyndns.example
 .cache/
 .vscode/
 .dev/
@@ -31,3 +32,5 @@ playwright-report/
 docs/simonswel.de.selfhosting.md
 .image-backups/
 .vscode/
+# Docker secrets (Cloudflare Tunnel token etc.)
+secrets/

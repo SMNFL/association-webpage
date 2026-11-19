@@ -5,6 +5,8 @@ import { releaseCultureImageErrors } from "./release-checks.js";
 const protectedPaths = [
   /^\.env(?:\.|$)/,
   /^\.editor-backups\//,
+  /^\.image-backups\//,
+  /^secrets\//,
   /^node_modules\//,
   /^test-results\//,
   /^playwright-report\//,
@@ -20,7 +22,8 @@ const protectedPaths = [
   /^public\/.*~$/
 ];
 
-const allowedEnvironmentExample = ".env.example";
+// Committed templates with placeholder values only; real values live in the ignored .env / .env.dyndns.
+const allowedEnvironmentExamples = new Set([".env.example", ".env.dyndns.example"]);
 const allowedDefaultEventPages = new Set([
   "public/pages/events/open-culture-night.html",
   "public/pages/events/archive-summer-sessions.html",
@@ -33,7 +36,7 @@ const candidates = gitLines("ls-files", "--others", "--exclude-standard");
 const errors = [];
 
 for (const file of [...tracked, ...candidates]) {
-  if (file === allowedEnvironmentExample) continue;
+  if (allowedEnvironmentExamples.has(file)) continue;
   if (allowedDefaultEventPages.has(file)) continue;
   if (protectedPaths.some((pattern) => pattern.test(file))) {
     errors.push(`${tracked.includes(file) ? "tracked" : "unignored"} local-only file: ${file}`);
