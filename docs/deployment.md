@@ -61,7 +61,10 @@ For Node self-hosting, set these security-related variables explicitly:
 
 ```env
 NODE_ENV=production
-TRUST_PROXY=loopback
+# private for Docker behind Caddy/Nginx on the same host, loopback for Node directly on the host
+TRUST_PROXY=private
+SITE_URL=https://example.org
+INSTAGRAM_USERNAME=example
 CAPTCHA_PROVIDER=hcaptcha
 HCAPTCHA_SITE_KEY=your-public-site-key
 HCAPTCHA_SECRET=your-private-secret
@@ -80,3 +83,27 @@ curl -I https://simonswelt.de/
 ```
 
 The HTTPS response should include CSP, HSTS, frame, MIME, referrer and permissions headers.
+
+## SEO And Crawlers
+
+The Node server renders page metadata server-side, so crawlers and link previews do not need JavaScript:
+
+- The homepage gets `<title>`, description, Open Graph tags, `lang` and the favicon from the site config; content pages use their entry in the pages config.
+- With `SITE_URL` set, every page gets a canonical link, `/sitemap.xml` lists the homepage, content pages and generated event pages, and `/robots.txt` points to the sitemap.
+- `/favicon.ico` redirects to `images.logo` from the site config.
+
+Static hosts serve `public/robots.txt` without a sitemap line; add a sitemap there if needed.
+
+## Performance
+
+- Media and fonts under `/assets/` are cached for 7 days; uploads always get new file names, so cached copies never go stale. HTML, CSS, JS and data keep revalidation so edits show up immediately.
+- Enable compression in the reverse proxy (`encode zstd gzip` in [`deploy/Caddyfile`](../deploy/Caddyfile)).
+- Shrink oversized published images before deploying. The script only touches images above 300 KB outside `*/original/*`, keeps a rewritten file only when it is smaller, and backs up replaced files to `.image-backups/`:
+
+  ```bash
+  scripts/optimize-images.sh
+  ```
+
+  ```bash
+  scripts/optimize-images.sh --apply
+  ```

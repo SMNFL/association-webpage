@@ -28,6 +28,17 @@ The form is prepared for Netlify Forms:
 
 On Netlify, submissions appear in the Netlify dashboard under Forms.
 
+## Personal And Bank Data
+
+With the Node server, applications are sent by email to `CONTACT_TO`. The email lists name, date of birth, address, phone, email, IBAN, BIC and the consent answers in plain text so the association can set up the SEPA mandate. Only the "Raw data" dump at the end redacts IBAN/BIC. Nothing is stored on the web server.
+
+Because the mailbox becomes the place where this data lives:
+
+- Use a dedicated mailbox with a strong password and two-factor authentication, reachable only by the people who handle memberships.
+- Transfer the data into the membership administration, then delete the email. Recommended rule: delete within 30 days, and delete applications that were not accepted immediately.
+- Describe this processing, the recipient and the retention period in the privacy policy (`pages.local.json` → `privacy`).
+- SMTP delivery uses TLS (`SMTP_REQUIRE_TLS=true` on port 587, or implicit TLS on 465); the receiving provider's storage is outside this application.
+
 ## Other Hosts
 
 If the site is hosted somewhere else, connect the form to one of these:

@@ -103,7 +103,10 @@ Required environment variables:
 
 ```bash
 NODE_ENV=production
-TRUST_PROXY=loopback
+# Docker behind Caddy/Nginx on the same host: private. Node directly on the host: loopback.
+TRUST_PROXY=private
+SITE_URL=https://example.org
+INSTAGRAM_USERNAME=example
 SMTP_HOST=smtp.example.org
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -162,9 +165,10 @@ Before production deployments and before the first public push, all commands sho
 ## Important Endpoints
 
 - `POST /api/contact`
-- `GET /api/instagram-feed?username=xxxx&limit=4` self-hosted Instagram live feed
-- `GET /.netlify/functions/instagram-feed?username=xxxx&limit=4` Netlify-compatible Instagram live feed
-- `GET /healthz`
+- `GET /api/instagram-feed?limit=4` self-hosted Instagram live feed for the server-configured account (`INSTAGRAM_USERNAME`; a `username` parameter is ignored)
+- `GET /.netlify/functions/instagram-feed?limit=4` Netlify-compatible Instagram live feed
+- `GET /robots.txt`, `GET /sitemap.xml` (sitemap needs `SITE_URL`), `GET /favicon.ico`
+- `GET /healthz` returns `{ "ok": true }`
 - `GET /editor/` only in `npm run editor` mode or the Docker `editor` profile
 
 Netlify is not required for the static website. For live Instagram on a static host, use the included Netlify Function or an equivalent server-side endpoint. Contact forms need Netlify Forms or the Node API.

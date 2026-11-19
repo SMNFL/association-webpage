@@ -51,6 +51,16 @@ The Compose file intentionally binds the Node service only to `127.0.0.1:8080`. 
 
 The default container starts only the public website. Runtime secrets come from `env_file: .env`.
 
+Behind a host reverse proxy (Caddy/Nginx on the same machine) set `TRUST_PROXY=private` for the Docker container: Docker's port mapping delivers requests from the bridge gateway, not from `127.0.0.1`, so `loopback` would make every visitor share one IP for rate limits.
+
+After changing code, dependencies, the `Dockerfile` or `.env`, rebuild so the container picks it up:
+
+```bash
+docker compose up -d --build website
+```
+
+The image is built in two stages: compilers needed for the Instagram helper's Python dependency stay in the build stage, and `curl_cffi` is pinned. Full-resolution `assets/images/**/original/` folders, `.editor-backups/` and `.image-backups/` are excluded from the image.
+
 ### Optional Docker Editor
 
 The editor is opt-in because it can modify local content files. Generate editor credentials once:
@@ -196,26 +206,46 @@ sudo apt update
 sudo apt install caddy
 ```
 
-Edit `/etc/caddy/Caddyfile`:
+Copy the reference config [`deploy/Caddyfile`](../deploy/Caddyfile) to `/etc/caddy/Caddyfile` (Homebrew on macOS: `/opt/homebrew/etc/Caddyfile`) and replace `example.org`:
 
 ```caddy
 example.org {
-  reverse_proxy 127.0.0.1:8080
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8080
+}
+
+www.example.org {
+	redir https://example.org{uri} permanent
 }
 ```
 
-Reload:
+`encode` compresses HTML, CSS, JS and JSON. The `www` block redirects to one canonical host; keep it in sync with `SITE_URL`.
+
+Validate and reload:
 
 ```bash
+caddy validate --config /etc/caddy/Caddyfile
 sudo systemctl reload caddy
 ```
 
-For `www` too:
+On macOS with Homebrew, run Caddy as exactly one service. If it was ever started with `sudo`, a root instance keeps ports 80/443 with its old config and `caddy reload` only updates the user instance. Check and fix:
 
-```caddy
-example.org, www.example.org {
-  reverse_proxy 127.0.0.1:8080
-}
+```bash
+ps -axo pid,user,command | grep "[c]addy run"
+```
+
+```bash
+brew services stop caddy
+```
+
+```bash
+sudo brew services restart caddy
+```
+
+Verify compression after a reload:
+
+```bash
+curl -sI -H "Accept-Encoding: gzip" https://example.org/styles/main.css | grep -i content-encoding
 ```
 
 ### Nginx Alternative
@@ -255,7 +285,78 @@ HTTPS should always be enabled in production through Let's Encrypt or an equival
 
 The application sets security headers itself. The reverse proxy must not remove those headers. HSTS is added in production.
 
-Set `TRUST_PROXY=loopback` when Caddy or Nginx runs on the same host and forwards to `127.0.0.1:8080`. Use `TRUST_PROXY=private` only when the reverse proxy is on a trusted private network. Leave `TRUST_PROXY=false` when the Node app is not behind a proxy. The app intentionally rejects broad proxy trust values.
+Set `TRUST_PROXY=loopback` when Node runs directly on the host behind Caddy or Nginx. Set `TRUST_PROXY=private` when Node runs in Docker behind a host reverse proxy (the Compose setup above) or when the proxy is on a trusted private network. Leave `TRUST_PROXY=false` when the Node app is not behind a proxy. The app intentionally rejects broad proxy trust values. Details: [`SECURITY.md`](SECURITY.md#production).
+
+## Site-Specific Environment
+
+Set these in `.env` in addition to SMTP and CAPTCHA:
+
+```env
+# Public base URL: canonical links, sitemap.xml and the robots.txt Sitemap line.
+SITE_URL=https://example.org
+# Instagram account for the homepage feed (overrides instagram.username in site config).
+INSTAGRAM_USERNAME=example
+# Number of editor backup snapshots to keep (default 50).
+EDITOR_BACKUP_KEEP=50
+```
+
+Without `SITE_URL` the site still works, but `/sitemap.xml` returns 404 and pages have no canonical link.
+
+## Home Hosting With Dynamic IPv6 (DynDNS)
+
+Residential IPv6 prefixes change. When they do, the AAAA record points to a dead address and the site is offline until DNS is updated. Point the record at the Mac's stable ("secured") address and keep it current with [`scripts/strato-dyndns.sh`](../scripts/strato-dyndns.sh):
+
+1. In the STRATO customer area enable DynDNS for the domain and set a DynDNS password.
+2. Create `.env.dyndns` in the repository root (ignored by Git and Docker, never commit it):
+
+   ```env
+   DYNDNS_HOSTS=example.org,www.example.org
+   STRATO_DYNDNS_USER=example.org
+   STRATO_DYNDNS_PASSWORD=your-dyndns-password
+   DYNDNS_INTERFACE=en0
+   ```
+
+3. Run it once by hand. It prints `unchanged` when DNS is already correct and only calls STRATO when the address differs:
+
+   ```bash
+   chmod 600 .env.dyndns
+   ```
+
+   ```bash
+   scripts/strato-dyndns.sh
+   ```
+
+4. Schedule it every 5 minutes with a LaunchAgent at `~/Library/LaunchAgents/de.example.dyndns.plist` (adjust the path):
+
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+     <key>Label</key><string>de.example.dyndns</string>
+     <key>ProgramArguments</key>
+     <array><string>/path/to/repo/scripts/strato-dyndns.sh</string></array>
+     <key>StartInterval</key><integer>300</integer>
+     <key>RunAtLoad</key><true/>
+     <key>StandardOutPath</key><string>/tmp/dyndns.log</string>
+     <key>StandardErrorPath</key><string>/tmp/dyndns.log</string>
+   </dict>
+   </plist>
+   ```
+
+   ```bash
+   launchctl load ~/Library/LaunchAgents/de.example.dyndns.plist
+   ```
+
+The router's IPv6 host exposure for TCP 80/443 must target the same device; most routers follow the device when the prefix changes.
+
+### IPv4 Visitors
+
+An AAAA-only domain is unreachable for IPv4-only networks (some mobile, hotel and corporate networks). Options, from least to most change:
+
+- Ask the ISP for Dual-Stack (a real public IPv4), then add an A record and forward TCP 80/443.
+- Use Cloudflare Tunnel (`cloudflared`): no open ports, IPv4 + IPv6, and the tunnel follows prefix changes automatically. Point the tunnel at `http://127.0.0.1:8080` and keep `TRUST_PROXY=private`.
+- Use a small VPS with a public IPv4 as reverse proxy to the home server over IPv6 or a VPN.
 
 Do not expose the editor through this public reverse proxy. Start it only locally with `npm run editor` and use `http://127.0.0.1:8081/editor/`.
 

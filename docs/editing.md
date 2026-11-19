@@ -65,6 +65,10 @@ For normal usage, run `npm run security:setup-editor` once, start `npm run edito
 
 Deployment-specific media directories are ignored by Git. Uploads stay available in the local working copy and are not automatically published with the reusable repository. Use a private deployment artifact or a separate private media pipeline for a real site.
 
+Event archives keep a full-resolution copy under `.../original/` and the published copy under `.../display/`. Pages reference only `display/` images; `original/` folders are never served publicly and are left out of the Docker image. Keep published images small (ideally under 300 KB): run `scripts/optimize-images.sh` for a dry run and `scripts/optimize-images.sh --apply` to shrink oversized images (backups go to `.image-backups/`).
+
+Each editor save first copies the previous file into `.editor-backups/<timestamp>/`. Only the newest 50 snapshots are kept; set `EDITOR_BACKUP_KEEP` in `.env` to change that.
+
 ## Editor Navigation
 
 The preview menu includes the homepage, regular subpages, culture detail pages and every generated event page. Use `Preview page` inside an event to open that event directly in the center preview.
