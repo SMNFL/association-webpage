@@ -1,3 +1,18 @@
+FROM node:22-bookworm-slim AS python-deps
+
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Build tools are only needed to compile cffi on platforms without prebuilt wheels (e.g. ARMv7).
+# They stay in this stage and never reach the runtime image.
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+       python3 python3-venv gcc libc6-dev libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m venv /opt/instagram-venv \
+    && /opt/instagram-venv/bin/pip install --no-cache-dir "curl_cffi==0.17.0"
+
+
 FROM node:22-bookworm-slim
 
 ENV NODE_ENV=production \
@@ -6,17 +21,13 @@ ENV NODE_ENV=production \
 
 WORKDIR /app
 
-# Install Python and the libraries needed to build cffi on ARMv7.
+# Runtime only needs the Python interpreter (no compiler, headers or venv tooling).
 RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-       python3 python3-venv gcc libc6-dev libffi-dev \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install the Instagram fetcher's Python dependency.
-RUN python3 -m venv /opt/instagram-venv \
-    && /opt/instagram-venv/bin/pip install --no-cache-dir curl_cffi
+COPY --from=python-deps /opt/instagram-venv /opt/instagram-venv
 
-# Install Node.js dependencies.
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 

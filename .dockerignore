@@ -14,3 +14,7 @@ docs
 public/js/events-data.js
 npm-debug.log
 *.log
+.image-backups
+.vscode
+# Full-resolution archive originals stay on disk for the editor; they are not served publicly.
+public/assets/images/**/original

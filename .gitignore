@@ -5,6 +5,8 @@ Thumbs.db
 .env.*
 !.env.example
 .cache/
+.vscode/
+.dev/
 dist/
 node_modules/
 public/data/*.local.json
@@ -27,3 +29,5 @@ public/assets/videos/**
 test-results/
 playwright-report/
 docs/simonswel.de.selfhosting.md
+.image-backups/
+.vscode/
