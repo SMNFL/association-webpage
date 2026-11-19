@@ -1,5 +1,7 @@
 const HCAPTCHA_VERIFY_URL = "https://hcaptcha.com/siteverify";
 const DEFAULT_MCAPTCHA_SCRIPT_URL = "https://unpkg.com/@mcaptcha/vanilla-glue@0.1.0-rc2/dist/index.js";
+// SHA-384 of the exact file above. Update both together; custom MCAPTCHA_SCRIPT_URL values are self-hosted and not pinned.
+const DEFAULT_MCAPTCHA_SCRIPT_INTEGRITY = "sha384-ODJS3m32+GRF5ESoJeKxB8UeuD82gQvd8dR6r1gQ3+hwMsf05E2q6N4EZvI01QUY";
 const VERIFY_TIMEOUT_MS = 8000;
 
 export class CaptchaVerificationError extends Error {
@@ -80,6 +82,8 @@ function hcaptchaProvider(env, fetchImpl) {
         response: clean(token)
       });
       if (context.remoteIp) body.set("remoteip", context.remoteIp);
+      const siteKey = clean(env.HCAPTCHA_SITE_KEY);
+      if (siteKey) body.set("sitekey", siteKey);
 
       const response = await fetchWithTimeout(fetchImpl, HCAPTCHA_VERIFY_URL, {
         method: "POST",
@@ -119,7 +123,8 @@ function mcaptchaProvider(env, fetchImpl) {
       provider: "mcaptcha",
       siteKey,
       widgetUrl,
-      scriptUrl: clean(env.MCAPTCHA_SCRIPT_URL) || DEFAULT_MCAPTCHA_SCRIPT_URL
+      scriptUrl: clean(env.MCAPTCHA_SCRIPT_URL) || DEFAULT_MCAPTCHA_SCRIPT_URL,
+      scriptIntegrity: clean(env.MCAPTCHA_SCRIPT_URL) ? "" : DEFAULT_MCAPTCHA_SCRIPT_INTEGRITY
     },
     requiresToken: true,
     tokenField: "mcaptcha",

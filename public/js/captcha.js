@@ -20,7 +20,8 @@ export function resolveCaptchaConfig(site = {}, form = {}) {
       provider: "mcaptcha",
       siteKey: clean(explicit.siteKey),
       widgetUrl: clean(explicit.widgetUrl),
-      scriptUrl: clean(explicit.scriptUrl) || MCAPTCHA_SCRIPT_URL
+      scriptUrl: clean(explicit.scriptUrl) || MCAPTCHA_SCRIPT_URL,
+      scriptIntegrity: clean(explicit.scriptIntegrity)
     };
   }
 
@@ -103,7 +104,7 @@ function configureMCaptcha(box, config = {}) {
   container.id = "mcaptcha__widget-container";
   container.dataset.mcaptchaWidget = "";
 
-  loadScript("mcaptcha", clean(config.scriptUrl) || MCAPTCHA_SCRIPT_URL);
+  loadScript("mcaptcha", clean(config.scriptUrl) || MCAPTCHA_SCRIPT_URL, clean(config.scriptIntegrity));
   return { enabled: true, provider: "mcaptcha", tokenName: "mcaptcha__token", element: container };
 }
 
@@ -120,9 +121,13 @@ function removeMCaptchaNodes(root) {
   root.querySelector("#mcaptcha__widget-container")?.remove();
 }
 
-function loadScript(name, src) {
+function loadScript(name, src, integrity = "") {
   if (!src || document.querySelector(`script[data-captcha-script="${name}"]`)) return;
   const script = document.createElement("script");
+  if (integrity) {
+    script.integrity = integrity;
+    script.crossOrigin = "anonymous";
+  }
   script.src = src;
   script.async = true;
   script.defer = true;

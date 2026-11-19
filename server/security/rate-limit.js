@@ -1,14 +1,37 @@
+/**
+ * Removes expired entries. Runs at most once per window so the cost stays O(entries / window).
+ * @param {Map<string, { resetAt: number, lockUntil?: number }>} entries
+ * @param {number} time
+ */
+function sweepExpired(entries, time) {
+  for (const [key, entry] of entries) {
+    if (entry.resetAt <= time && !(entry.lockUntil > time)) entries.delete(key);
+  }
+}
+
+function createSweeper(entries, windowMs) {
+  let nextSweepAt = 0;
+  return (time) => {
+    if (time < nextSweepAt) return;
+    sweepExpired(entries, time);
+    nextSweepAt = time + windowMs;
+  };
+}
+
 export function createMemoryRateLimiter(options = {}) {
   const windowMs = Number(options.windowMs || 15 * 60 * 1000);
   const max = Number(options.max || 5);
+  const now = options.now || (() => Date.now());
   const entries = new Map();
+  const sweep = createSweeper(entries, windowMs);
 
-  return function rateLimit(req, res, next) {
-    const now = Date.now();
+  function rateLimit(req, res, next) {
+    const time = now();
+    sweep(time);
     const key = String(options.key?.(req) || req.ip || req.socket?.remoteAddress || "unknown");
     const current = entries.get(key);
-    const entry = !current || current.resetAt <= now
-      ? { count: 0, resetAt: now + windowMs }
+    const entry = !current || current.resetAt <= time
+      ? { count: 0, resetAt: time + windowMs }
       : current;
 
     entry.count += 1;
@@ -18,13 +41,16 @@ export function createMemoryRateLimiter(options = {}) {
     res.set("RateLimit-Reset", String(Math.ceil(entry.resetAt / 1000)));
 
     if (entry.count > max) {
-      res.set("Retry-After", String(Math.ceil((entry.resetAt - now) / 1000)));
+      res.set("Retry-After", String(Math.ceil((entry.resetAt - time) / 1000)));
       options.onLimit?.(req, entry);
       return res.status(429).json({ ok: false, error: options.message || "Too many requests. Please try again later." });
     }
 
     return next();
-  };
+  }
+
+  rateLimit.size = () => entries.size;
+  return rateLimit;
 }
 
 export function createProgressiveLoginGuard(options = {}) {
@@ -34,14 +60,16 @@ export function createProgressiveLoginGuard(options = {}) {
   const maxLockMs = Number(options.maxLockMs || 15 * 60 * 1000);
   const now = options.now || (() => Date.now());
   const entries = new Map();
+  const sweep = createSweeper(entries, windowMs);
 
   function keyFor(req) {
     return String(options.key?.(req) || req.ip || req.socket?.remoteAddress || "unknown");
   }
 
   function entryFor(key) {
-    const current = entries.get(key);
     const time = now();
+    sweep(time);
+    const current = entries.get(key);
     if (!current || current.resetAt <= time) {
       const fresh = { count: 0, resetAt: time + windowMs, lockUntil: 0 };
       entries.set(key, fresh);
@@ -78,5 +106,5 @@ export function createProgressiveLoginGuard(options = {}) {
     entries.delete(keyFor(req));
   }
 
-  return { middleware, recordFailure, recordSuccess };
+  return { middleware, recordFailure, recordSuccess, size: () => entries.size };
 }

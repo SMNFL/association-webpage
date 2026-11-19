@@ -33,6 +33,12 @@ export function createEditorAuth(options = {}) {
   const sessions = new Map();
   if (!passwordHash || !sessionSecret) throw new Error("Editor authentication requires a password hash and session secret.");
 
+  function dropExpiredSessions(time = Date.now()) {
+    for (const [id, current] of sessions) {
+      if (current.expiresAt <= time) sessions.delete(id);
+    }
+  }
+
   function sessionFromRequest(req) {
     const signedToken = readCookie(req, EDITOR_COOKIE);
     const id = verifySignedToken(signedToken, sessionSecret);
@@ -82,6 +88,7 @@ export function createEditorAuth(options = {}) {
       return res.status(401).json({ ok: false, error: "Invalid administrator credentials." });
     }
     options.onLoginSuccess?.(req);
+    dropExpiredSessions();
     const id = randomBytes(32).toString("base64url");
     const current = {
       id,
@@ -138,7 +145,12 @@ function readCookie(req, name) {
   const header = String(req.headers?.cookie || "");
   for (const item of header.split(";")) {
     const [key, ...parts] = item.trim().split("=");
-    if (key === name) return decodeURIComponent(parts.join("="));
+    if (key !== name) continue;
+    try {
+      return decodeURIComponent(parts.join("="));
+    } catch {
+      return "";
+    }
   }
   return "";
 }

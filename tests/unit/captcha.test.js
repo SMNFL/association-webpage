@@ -28,7 +28,8 @@ test("captcha provider selects mCaptcha from full mCaptcha config", () => {
     provider: "mcaptcha",
     siteKey: "site-key",
     widgetUrl: "https://captcha.example/widget",
-    scriptUrl: "https://unpkg.com/@mcaptcha/vanilla-glue@0.1.0-rc2/dist/index.js"
+    scriptUrl: "https://unpkg.com/@mcaptcha/vanilla-glue@0.1.0-rc2/dist/index.js",
+    scriptIntegrity: "sha384-ODJS3m32+GRF5ESoJeKxB8UeuD82gQvd8dR6r1gQ3+hwMsf05E2q6N4EZvI01QUY"
   });
 });
 
