@@ -1,3 +1,8 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
+
 const DEFAULT_USERNAME = "example";
 const MAX_LIMIT = 4;
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -8,7 +13,10 @@ let cachedFeed = null;
 let cachedAt = 0;
 
 export function normalizeInstagramPost(node = {}, username = DEFAULT_USERNAME) {
-  const caption = node.edge_media_to_caption?.edges?.[0]?.node?.text || node.caption || "";
+  const caption =
+    node.edge_media_to_caption?.edges?.[0]?.node?.text ||
+    (typeof node.caption === "string" ? node.caption : node.caption?.text) ||
+    "";
   const shortcode = node.shortcode || node.code || "";
   const image = node.display_url || node.thumbnail_src || node.media_url || "";
 
@@ -37,7 +45,7 @@ export function normalizeInstagramFeed(payload = {}, username = DEFAULT_USERNAME
       username: user.username || username,
       permalink: `https://www.instagram.com/${user.username || username}/`,
       profile_picture_url: user.profile_pic_url || "",
-      media_count: user.edge_owner_to_timeline_media?.count || posts.length
+      media_count: user.all_media_count || posts.length
     },
     posts
   };
@@ -107,25 +115,19 @@ function firstLine(value = "") {
   return String(value).split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "";
 }
 
-async function fetchInstagramPayload(username, fetchImpl) {
-  const endpoint = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
-  const response = await fetchWithTimeout(fetchImpl, endpoint, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-      "Accept": "application/json,text/plain,*/*",
-      "Accept-Language": "en-US,en;q=0.9",
-      "Referer": `https://www.instagram.com/${username}/`,
-      "x-asbd-id": "129477",
-      "x-ig-app-id": "936619743392459",
-      "x-requested-with": "XMLHttpRequest"
+async function fetchInstagramPayload(username) {
+  const python = process.env.INSTAGRAM_PYTHON || "python3";
+
+  const { stdout } = await execFileAsync(
+    python,
+    ["scripts/instagram-fetch.py", username],
+    {
+      timeout: 35000,
+      maxBuffer: 2 * 1024 * 1024
     }
-  });
+  );
 
-  if (!response.ok) {
-    throw new Error(`Instagram responded with ${response.status}`);
-  }
-
-  return response.json();
+  return JSON.parse(stdout);
 }
 
 async function imageAsDataUrl(url, fetchImpl) {
