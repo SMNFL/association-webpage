@@ -1,16 +1,23 @@
 import { execFile } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FETCH_SCRIPT = path.resolve(__dirname, "../../scripts/instagram-fetch.py");
 
 const DEFAULT_USERNAME = "example";
+const USERNAME_PATTERN = /^[a-zA-Z0-9._]{1,30}$/;
 const MAX_LIMIT = 4;
-const CACHE_TTL_MS = 10 * 60 * 1000;
+const SUCCESS_TTL_MS = 10 * 60 * 1000;
+const FAILURE_TTL_MS = 5 * 60 * 1000;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 8000;
+const SCRIPT_TIMEOUT_MS = 35000;
+const SCRIPT_MAX_BUFFER = 2 * 1024 * 1024;
 
-let cachedFeed = null;
-let cachedAt = 0;
+export const INSTAGRAM_PUBLIC_ERROR = "Instagram feed is currently unavailable.";
 
 export function normalizeInstagramPost(node = {}, username = DEFAULT_USERNAME) {
   const caption =
@@ -51,58 +58,104 @@ export function normalizeInstagramFeed(payload = {}, username = DEFAULT_USERNAME
   };
 }
 
-export async function fetchInstagramFeed(options = {}) {
-  const username = cleanUsername(options.username);
-  const limit = limitPosts(options.limit);
-  const cacheKey = `${username}:${limit}`;
-
-  if (!options.noCache && cachedFeed?.cacheKey === cacheKey && Date.now() - cachedAt < CACHE_TTL_MS) {
-    return cachedFeed.feed;
+/**
+ * Picks the Instagram account the server is allowed to fetch. Visitors never choose it.
+ * @param {{ env?: Record<string, string | undefined>, configs?: object[] }} sources
+ * @returns {string}
+ */
+export function resolveInstagramUsername({ env = process.env, configs = [] } = {}) {
+  const candidates = [env.INSTAGRAM_USERNAME, ...configs.map((config) => config?.instagram?.username)];
+  for (const candidate of candidates) {
+    const username = String(candidate || "").replace(/^@/, "").trim();
+    if (USERNAME_PATTERN.test(username)) return username;
   }
+  return DEFAULT_USERNAME;
+}
 
-  const payload = options.payload || await fetchInstagramPayload(username, options.fetchImpl || fetch);
-  const feed = normalizeInstagramFeed(payload, username, limit);
+/**
+ * Fetches one fixed Instagram profile with success/failure caching and a shared in-flight request,
+ * so public traffic can never start more than one fetch per TTL window.
+ */
+export function createInstagramFeedService(options = {}) {
+  const username = resolveInstagramUsername({ env: {}, configs: [{ instagram: { username: options.username } }] });
+  const loadPayload = options.loadPayload || fetchInstagramPayload;
+  const fetchImpl = options.fetchImpl || fetch;
+  const now = options.now || Date.now;
+  const successTtlMs = Number(options.successTtlMs ?? SUCCESS_TTL_MS);
+  const failureTtlMs = Number(options.failureTtlMs ?? FAILURE_TTL_MS);
+  const inlineImages = options.inlineImages !== false;
 
-  if (!feed.posts.length) {
-    throw new Error("Instagram profile has no public posts");
-  }
+  let cache = null;
+  let inFlight = null;
 
-  if (options.inlineImages !== false) {
-    feed.posts = await Promise.all(feed.posts.map(async (post) => ({
+  async function load() {
+    const payload = await loadPayload(username);
+    const feed = normalizeInstagramFeed(payload, username, MAX_LIMIT);
+    if (!feed.posts.length) throw new Error("Instagram profile has no public posts");
+    if (!inlineImages) return feed;
+    const posts = await Promise.all(feed.posts.map(async (post) => ({
       ...post,
-      media_url: await imageAsDataUrl(post.media_url, options.fetchImpl || fetch)
+      media_url: await imageAsDataUrl(post.media_url, fetchImpl)
     })));
+    return { ...feed, posts };
   }
 
-  cachedFeed = { cacheKey, feed };
-  cachedAt = Date.now();
-  return feed;
-}
-
-export async function handleInstagramRequest(req, res) {
-  try {
-    const feed = await fetchInstagramFeed({
-      username: req.query.username,
-      limit: req.query.limit
-    });
-    res.set("Cache-Control", "public, max-age=300, s-maxage=600");
-    return res.status(200).json(feed);
-  } catch (error) {
-    return res.status(502).json({
-      source: "instagram-public-profile",
-      profile: {
-        username: cleanUsername(req.query.username),
-        permalink: `https://www.instagram.com/${cleanUsername(req.query.username)}/`
-      },
-      posts: [],
-      error: error.message
-    });
+  function refresh() {
+    inFlight = load()
+      .then((feed) => {
+        cache = { feed, error: null, expiresAt: now() + successTtlMs };
+        return feed;
+      })
+      .catch((error) => {
+        cache = { feed: null, error, expiresAt: now() + failureTtlMs };
+        options.onRefreshError?.(error);
+        throw error;
+      })
+      .finally(() => {
+        inFlight = null;
+      });
+    return inFlight;
   }
+
+  async function currentFeed() {
+    if (cache && cache.expiresAt > now()) {
+      if (cache.error) throw cache.error;
+      return cache.feed;
+    }
+    return inFlight || refresh();
+  }
+
+  async function getFeed(limit) {
+    const feed = await currentFeed();
+    return { ...feed, posts: feed.posts.slice(0, limitPosts(limit)) };
+  }
+
+  return { username, getFeed };
 }
 
-function cleanUsername(value = "") {
-  const username = String(value || DEFAULT_USERNAME).replace(/^@/, "").trim();
-  return /^[a-zA-Z0-9._]{1,30}$/.test(username) ? username : DEFAULT_USERNAME;
+/**
+ * Express handler. Only `limit` is read from the query; internal errors stay in the server log.
+ */
+export function createInstagramHandler(service, options = {}) {
+  return async function instagramHandler(req, res) {
+    try {
+      const feed = await service.getFeed(req.query?.limit);
+      res.set("Cache-Control", "public, max-age=300, s-maxage=600");
+      return res.status(200).json(feed);
+    } catch (error) {
+      options.onError?.(error, req);
+      res.set("Cache-Control", "no-store");
+      return res.status(502).json({
+        source: "instagram-public-profile",
+        profile: {
+          username: service.username,
+          permalink: `https://www.instagram.com/${service.username}/`
+        },
+        posts: [],
+        error: INSTAGRAM_PUBLIC_ERROR
+      });
+    }
+  };
 }
 
 function limitPosts(value) {
@@ -117,16 +170,10 @@ function firstLine(value = "") {
 
 async function fetchInstagramPayload(username) {
   const python = process.env.INSTAGRAM_PYTHON || "python3";
-
-  const { stdout } = await execFileAsync(
-    python,
-    ["scripts/instagram-fetch.py", username],
-    {
-      timeout: 35000,
-      maxBuffer: 2 * 1024 * 1024
-    }
-  );
-
+  const { stdout } = await execFileAsync(python, [FETCH_SCRIPT, username], {
+    timeout: SCRIPT_TIMEOUT_MS,
+    maxBuffer: SCRIPT_MAX_BUFFER
+  });
   return JSON.parse(stdout);
 }
 
@@ -149,7 +196,7 @@ async function imageAsDataUrl(url, fetchImpl) {
     const buffer = Buffer.from(await response.arrayBuffer());
     if (buffer.length > MAX_IMAGE_BYTES) return url;
     return `data:${contentType};base64,${buffer.toString("base64")}`;
-  } catch (error) {
+  } catch {
     return url;
   }
 }

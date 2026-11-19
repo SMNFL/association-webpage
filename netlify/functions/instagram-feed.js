@@ -3,6 +3,8 @@ const MAX_LIMIT = 4;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 8000;
+const FAILURE_TTL_MS = 5 * 60 * 1000;
+const PUBLIC_ERROR = "Instagram feed is currently unavailable.";
 const SECURITY_HEADERS = {
   "Content-Security-Policy": "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'; script-src 'self' https://js.hcaptcha.com https://www.instagram.com https://tickets.clevertix.de https://*.hcaptcha.com; style-src 'self' 'unsafe-inline' https://tickets.clevertix.de; img-src 'self' data: https:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://www.google.com https://www.paypal.com https://tickets.clevertix.de https://www.instagram.com https://open.spotify.com https://w.soundcloud.com https://bandcamp.com https://challonge.com https://*.hcaptcha.com; connect-src 'self' https://hcaptcha.com https://*.hcaptcha.com; font-src 'self' data:",
   "Permissions-Policy": 'camera=(), microphone=(), geolocation=(), payment=(), encrypted-media=(self "https://www.youtube.com" "https://www.youtube-nocookie.com" "https://open.spotify.com" "https://w.soundcloud.com" "https://bandcamp.com")',
@@ -14,6 +16,7 @@ const SECURITY_HEADERS = {
 
 let cachedFeed = null;
 let cachedAt = 0;
+let cachedFailureAt = 0;
 
 function json(statusCode, body) {
   return {
@@ -124,27 +127,38 @@ async function fetchInstagramProfile(username, limit) {
   };
 }
 
+// The account is fixed server-side (INSTAGRAM_USERNAME); the `username` query parameter is ignored
+// so the function cannot be used as a scraping proxy for arbitrary profiles.
 exports.handler = async (event) => {
-  const username = cleanUsername(event.queryStringParameters?.username);
+  const username = cleanUsername(process.env.INSTAGRAM_USERNAME);
+  if (!process.env.INSTAGRAM_USERNAME) {
+    console.warn(JSON.stringify({ level: "warn", event: "instagram_username_missing", fallback: username }));
+  }
   const limit = limitPosts(event.queryStringParameters?.limit);
-  const cacheKey = `${username}:${limit}`;
+  const errorBody = {
+    source: "instagram-public-profile",
+    profile: { username, permalink: `https://www.instagram.com/${username}/` },
+    posts: [],
+    error: PUBLIC_ERROR
+  };
 
-  if (cachedFeed?.cacheKey === cacheKey && Date.now() - cachedAt < CACHE_TTL_MS) {
-    return json(200, cachedFeed.feed);
+  if (cachedFailureAt && Date.now() - cachedFailureAt < FAILURE_TTL_MS) {
+    return json(502, errorBody);
+  }
+  if (cachedFeed && Date.now() - cachedAt < CACHE_TTL_MS) {
+    return json(200, { ...cachedFeed, posts: cachedFeed.posts.slice(0, limit) });
   }
 
   try {
-    const feed = await fetchInstagramProfile(username, limit);
-    cachedFeed = { cacheKey, feed };
+    const feed = await fetchInstagramProfile(username, MAX_LIMIT);
+    cachedFeed = feed;
     cachedAt = Date.now();
-    return json(200, feed);
+    cachedFailureAt = 0;
+    return json(200, { ...feed, posts: feed.posts.slice(0, limit) });
   } catch (error) {
-    return json(502, {
-      source: "instagram-public-profile",
-      profile: { username, permalink: `https://www.instagram.com/${username}/` },
-      posts: [],
-      error: error.message
-    });
+    cachedFailureAt = Date.now();
+    console.error(JSON.stringify({ level: "error", event: "instagram_feed_refresh_failed", message: String(error?.message || error) }));
+    return json(502, errorBody);
   }
 };
 

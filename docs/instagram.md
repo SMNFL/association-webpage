@@ -50,7 +50,14 @@ The same live handler is available in both supported server environments:
 - Node self-hosting: `/api/instagram-feed` and `/.netlify/functions/instagram-feed`
 - Netlify: `/.netlify/functions/instagram-feed`
 
-Both routes read the public Instagram profile server-side, normalize the latest four posts, cache successful responses briefly, and proxy trusted Instagram images with size and timeout limits.
+Both routes read the public Instagram profile server-side, normalize the latest four posts, and proxy trusted Instagram images with size and timeout limits.
+
+The profile is fixed on the server and the `username` query parameter is ignored, so the endpoint cannot be used to scrape arbitrary accounts:
+
+- Node: `INSTAGRAM_USERNAME`, otherwise `instagram.username` from `site.local.json`, then `site.default.json` (read at startup).
+- Netlify: `INSTAGRAM_USERNAME` environment variable.
+
+Successes are cached for 10 minutes and failures for 5 minutes, and concurrent requests share one in-flight fetch, so public traffic starts at most one fetch per cache window. Error responses only contain a generic message; details are written to the server log as `instagram_feed_refresh_failed`.
 
 The endpoint uses Instagram's public profile response rather than an official authenticated Instagram API integration. It needs no token, but Instagram can change or restrict that response without notice. The fallback file keeps the homepage useful during an outage. If a future deployment adopts an official API, keep its access token server-side and preserve the same normalized browser response shape.
 
